@@ -3,11 +3,11 @@ import torch.nn as nn
 import numpy as np
 import os
 from data_loader import get_loader
-from model import EncoderCNN, DecoderRNN
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
 import datetime
+from attention_model import CaptionModel
 
 model_path = './models/'
 crop_size = 224
@@ -23,32 +23,21 @@ batch_size = 128
 num_workers = 2
 learning_rate = 0.001
 vocab_size = 12000
-use_cuda = True
+use_cuda = False
 
 def main():
-    # Image preprocessing
-    transform = transforms.Compose([
-        transforms.RandomCrop(crop_size),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor()
-        # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
 
-    # Build data loader
-    data_loader = get_loader(transform, batch_size, shuffle=True, num_workers=num_workers)
-
-    # Build the models
-    encoder = EncoderCNN(embed_size)
-    decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
+    data_loader = get_loader(batch_size, shuffle=True, num_workers=num_workers)
+    model = CaptionModel()
 
     if use_cuda:
-        encoder.cuda()
-        decoder.cuda()
+        model.cuda()
 
     # Loss and Optimizer
+    model.train()
     criterion = nn.CrossEntropyLoss()
-    params = list(decoder.parameters()) + list(encoder.resnet.fc.parameters())
-    optimizer = torch.optim.Adam(params, lr=learning_rate)
+    # params = list(decoder.parameters()) + list(encoder.resnet.fc.parameters())
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     # Train the Models
     total_step = len(data_loader)

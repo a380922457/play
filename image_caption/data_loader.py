@@ -7,6 +7,7 @@ from PIL import Image
 import json
 import os.path
 import tensorflow as tf
+import numpy as np
 
 image_dir = "/media/father/0000678400004823/resized_image"
 captions_file = "/media/father/0000678400004823/ai_challenger_caption_train_20170902/new.json"
@@ -26,9 +27,7 @@ class MyDataset(data.Dataset):
         caption = line["caption"]
         img_id = line['image_id']
         target = torch.Tensor(caption)
-        image = Image.open(os.path.join(image_dir, img_id))
-        if self.transform is not None:
-            image = self.transform(image)
+        image = np.load(os.path.join(image_dir, img_id))['feat']
         return image, target
 
     def __len__(self):
@@ -51,6 +50,6 @@ def collate_fn(data):
     return images, targets, lengths
 
 
-def get_loader(transform: object, batch_size: object, shuffle: object, num_workers: object) -> object:
-    return torch.utils.data.DataLoader(dataset=MyDataset(transform), batch_size=batch_size,
+def get_loader(batch_size: object, shuffle: object, num_workers: object) -> object:
+    return torch.utils.data.DataLoader(dataset=MyDataset(), batch_size=batch_size,
                                        shuffle=shuffle, num_workers=num_workers, collate_fn=collate_fn)
