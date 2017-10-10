@@ -3,9 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import *
 
-
 class CaptionModel(nn.Module):
-    def __init__(self, vocab_size=12000, input_encoding_size=512, rnn_type="lstm", rnn_size=1024,
+    def __init__(self, vocab_size=12000, input_encoding_size=128, rnn_type="lstm", rnn_size=128,
                  num_layers=1, drop_prob_lm=0.5, att_feat_size=2048):
         super(CaptionModel, self).__init__()
         self.vocab_size = vocab_size
@@ -20,10 +19,11 @@ class CaptionModel(nn.Module):
         self.embed = nn.Embedding(self.vocab_size + 1, self.input_encoding_size)
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
         self.dropout = nn.Dropout(self.drop_prob_lm)
+        self.reduced_feat = nn.Linear(self.att_feat_size, input_encoding_size)
 
         self.ctx2att = nn.Linear(self.att_feat_size, 1)
         self.h2att = nn.Linear(self.rnn_size, 1)
-
+        self.rnn = nn.LSTM(input_encoding_size*2, rnn_size, num_layers)
         self.init_weights()
 
     def init_weights(self):
@@ -40,10 +40,9 @@ class CaptionModel(nn.Module):
             return image_map
 
     def forward(self, att_feats, seq):
-        state = self.init_hidden(att_feats.mean(3).mean(2).squeeze())
+        state = self.init_hidden(att_feats.mean(2).mean(1).squeeze())
         outputs = []
-
-        for i in range(seq.size(1) - 1):
+        for i in range(seq.size(1)):
             it = seq[:, i].clone()
             if i >= 1 and seq[:, i].data.sum() == 0:
                 break
@@ -62,13 +61,13 @@ class CaptionModel(nn.Module):
             weight = F.softmax(dot)
             att_feats_ = att_feats.view(-1, att_size, self.att_feat_size)  # batch * att_size * att_feat_size
             att_res = torch.bmm(weight.unsqueeze(1), att_feats_).squeeze(1)  # batch * att_feat_size
+            att_res = self.reduced_feat(att_res)
 
             output, state = self.rnn(torch.cat([xt, att_res], 1).unsqueeze(0), state)
             output = output.squeeze(0)
-
             output = F.log_softmax(self.logit(self.dropout(output)))
+            # output = F.softmax(self.logit(self.dropout(output)))
             outputs.append(output)
-
         return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
 
     def sample_beam(self, fc_feats, att_feats, opt={}):
