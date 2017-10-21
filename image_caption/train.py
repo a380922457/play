@@ -1,13 +1,12 @@
 import torch
 import numpy as np
-import os
 from data_loader import get_loader
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
 import datetime
-from attention_model import CaptionModel
 from utils import LanguageModelCriterion
 from ada_attention_model import AdaAttModel
+from attention_model import Attention_Model
 
 model_path = './models/'
 crop_size = 224
@@ -28,7 +27,7 @@ use_cuda = False
 
 def main():
     data_loader = get_loader(batch_size, shuffle=False, num_workers=num_workers)
-    model = AdaAttModel()
+    model = Attention_Model()
 
     if use_cuda:
         model.cuda()

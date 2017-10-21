@@ -27,17 +27,17 @@ class AdaAtt_lstm(nn.Module):
     def forward(self, xt, state):
         hx, cx = state
         gates = (F.linear(xt, self.w_ih) + F.linear(hx, self.w_hh)).squeeze(0)
-        ingate, forgetgate, cellgate, outgate, sgate = gates.chunk(5, 1)
+        in_gate, forget_gate, cell_gate, out_gate, s_gate = gates.chunk(5, 1)
 
-        ingate = F.sigmoid(ingate)
-        forgetgate = F.sigmoid(forgetgate)
-        outgate = F.sigmoid(outgate)
-        sgate = F.sigmoid(sgate)
-        cell = F.tanh(cellgate)
+        in_gate = F.sigmoid(in_gate)
+        forget_gate = F.sigmoid(forget_gate)
+        out_gate = F.sigmoid(out_gate)
+        s_gate = F.sigmoid(s_gate)
+        cell = F.tanh(cell_gate)
 
-        cy = F.tanh((forgetgate * cx) + (ingate * cell))
-        sentinel = sgate * cy
-        hy = outgate * cy
+        cy = F.tanh((forget_gate * cx) + (in_gate * cell))
+        sentinel = s_gate * cy
+        hy = out_gate * cy
 
         return hy, cy, sentinel
 
@@ -54,9 +54,11 @@ class AdaAtt_attention(nn.Module):
         # 图像维度变化
         self.att_embed = nn.Sequential(nn.Linear(self.att_feat_size, self.rnn_size), nn.ReLU(), nn.Dropout(self.drop_prob_lm))
         self.ctx2att = nn.Linear(self.rnn_size, self.att_hid_size)
+
         # 哨兵维度变化
         # self.sentinel_linear = nn.Sequential(nn.Linear(self.rnn_size, self.input_encoding_size), nn.ReLU(), nn.Dropout(self.drop_prob_lm))
         self.sentinel_embed = nn.Linear(self.rnn_size, self.att_hid_size)
+
         # h隐状态维度变化
         # self.ho_linear = nn.Sequential(nn.Linear(self.rnn_size, self.input_encoding_size), nn.Tanh(), nn.Dropout(self.drop_prob_lm))
         self.ho_embed = nn.Linear(self.rnn_size, self.att_hid_size)

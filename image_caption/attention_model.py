@@ -3,10 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import *
 
-class CaptionModel(nn.Module):
+
+class Attention_Model(nn.Module):
     def __init__(self, vocab_size=12000, input_encoding_size=128, rnn_type="lstm", rnn_size=128,
                  num_layers=1, drop_prob_lm=0.5, att_feat_size=2048):
-        super(CaptionModel, self).__init__()
+        super(Attention_Model, self).__init__()
         self.vocab_size = vocab_size
         self.input_encoding_size = input_encoding_size
         self.rnn_type = rnn_type
