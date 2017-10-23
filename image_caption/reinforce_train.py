@@ -1,16 +1,12 @@
 import torch
-from torch.autograd import Variable
 import torch.optim as optim
-import numpy as np
-import tensorflow as tf
-import time
-import os
-from six.moves import cPickle
-import att2in
-from data_loader import get_loader
+from torch.autograd import Variable
+
 # import eval_utils
 import misc.utils as utils
-from misc.rewards import init_cider_scorer, get_self_critical_reward
+from data_loader import get_loader
+from misc.rewards import get_self_critical_reward
+from models import att2in
 
 model_path = './models/'
 crop_size = 224
