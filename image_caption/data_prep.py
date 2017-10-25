@@ -2,7 +2,6 @@
 import os
 from PIL import Image
 from collections import Counter
-from collections import namedtuple
 from datetime import datetime
 import json
 import os.path
@@ -14,26 +13,23 @@ import misc.resnet as resnet
 import torch
 from torch.autograd import Variable
 
-image_dir = "/media/father/0000678400004823/ai_challenger_caption_train_20170902/ai_challenger_caption_train_20170902/caption_train_images_20170902"
-train_captions_file = '/media/father/0000678400004823/ai_challenger_caption_train_20170902/caption_train_annotations_20170902.json'
-output_dir = '/media/father/新加卷/image_feature_att'
-word_counts_output_file = '/media/father/0000678400004823/resized_image/vocab.txt'
-new_json_file = "/media/father/0000678400004823/ai_challenger_caption_train_20170902/new.json"
+train_captions_file = '/media/father/d/ai_challenger_caption_20170902/caption_train_annotations_20170902.json'
+image_dir = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_images_20170910'
+val_captions_file = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_annotations_20170910.json'
+output_dir = '/media/father/d/ai_challenger_caption_validation_20170910/val_image_att'
+word_counts_output_file = '/media/father/d/ai_challenger_caption_20170902/vocab.json'
+new_json_file = '/media/father/d/ai_challenger_caption_validation_20170910//new.json'
 
 start_word = "<S>"
 end_word = "</S>"
 unknown_word = "<UNK>"
 
-ImageMetadata = namedtuple("ImageMetadata", ["filename", "captions"])
-num_threads = 1
 
-
-def _process_caption(caption):
-    tokenized_caption = [start_word]
-    tokenized_caption.extend(list(jieba.cut(caption)))
-    tokenized_caption.append(end_word)
-
-    return tokenized_caption
+def _caption_append(caption):
+    new_caption = [start_word]
+    new_caption.extend(list(jieba.cut(caption)))
+    new_caption.append(end_word)
+    return new_caption
 
 
 class Vocabulary(object):
@@ -66,6 +62,8 @@ def _create_vocab(captions):
     reverse_vocab = [x[0] for x in word_counts]
     unk_id = len(reverse_vocab)
     vocab_dict = dict([(x, y) for (y, x) in enumerate(reverse_vocab)])
+    with open(word_counts_output_file, 'w') as f:
+        json.dump(vocab_dict, f)
     vocab = Vocabulary(vocab_dict, unk_id)
 
     return vocab
@@ -75,26 +73,26 @@ def _process_captions(captions_file):
     with tf.gfile.FastGFile(captions_file, "r") as f:
         caption_data = json.load(f)
 
-    image_metadata = []
     num_captions = 0
+    captions = []
     for line in caption_data:
-        captions = [_process_caption(c) for c in line["caption"]]
-        image_metadata.append(ImageMetadata(line["image_id"], captions))
-        num_captions += len(captions)
+        caption = [_caption_append(c) for c in line["caption"]]
+        num_captions += len(caption)
+        for c in caption:
+            captions.append(c)
     print("Finished processing %d captions in %s" % (num_captions, captions_file))
-    captions =  [c for image in image_metadata for c in image.captions]
     vocab = _create_vocab(captions)
 
-    new_json = []
-
-    for line in caption_data:
-        for caption in line["caption"]:
-            caption = _process_caption(caption)
-            caption_ids = [vocab.word_to_id(word) for word in caption]
-            new_json.append({"image_id":line["image_id"],"caption":caption_ids})
-    with open(new_json_file, 'w') as f:
-        json.dump(new_json, f)
-    # return image_metadata
+    # new_json = []
+    #
+    # for line in caption_data:
+    #     for caption in line["caption"]:
+    #         caption = _caption_append(caption)
+    #         caption_ids = [vocab.word_to_id(word) for word in caption]
+    #         print(caption_ids)
+    #         new_json.append({"image_id": line["image_id"], "caption": caption_ids})
+    # with open(new_json_file, 'w') as f:
+    #     json.dump(new_json, f)
 
 
 def _process_images(image_dir):
@@ -120,10 +118,11 @@ def _process_images(image_dir):
         if not counter % 1000:
             print("%s : Processed %d " % (datetime.now(), counter))
 
-def main():
-    # _process_captions(train_captions_file)
 
-    _process_images(image_dir)
+def main():
+    _process_captions(train_captions_file)
+
+    # _process_images(image_dir)
 
 
 main()
