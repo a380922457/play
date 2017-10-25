@@ -80,13 +80,10 @@ def main():
     # if vars(opt).get('start_from', None) is not None:
     #     optimizer.load_state_dict(torch.load(os.path.join(opt.start_from, 'optimizer.pth')))
 
-
     # Train the Models
     total_step = len(data_loader)
     for epoch in range(num_epochs):
-        print(data_loader)
-        for (images, captions, masks) in data_loader:
-        # for i, (images, captions, masks) in enumerate(data_loader):
+        for i, (images, captions, masks) in enumerate(data_loader):
             images = Variable(images, requires_grad=False)
             captions = Variable(captions, requires_grad=False)
             # torch.cuda.synchronize()
@@ -112,56 +109,54 @@ def main():
             #     loss_history[iteration] = train_loss
             #     ss_prob_history[iteration] = model.ss_prob
 
-            # if iteration % save_checkpoint_every == 0:
-            #     # eval model
-            #     eval_kwargs = {'split': 'val', 'dataset': opt.input_json}
-            #     eval_kwargs.update(vars(opt))
-            #     val_loss, predictions, lang_stats = eval_utils.eval_split(model, criterion, loader, eval_kwargs)
-            #
-            #     # Write validation result into summary
-            #
-            #     add_summary_value(tf_summary_writer, 'validation loss', val_loss, iteration)
-            #     for k, v in lang_stats.items():
-            #         add_summary_value(tf_summary_writer, k, v, iteration)
-            #     tf_summary_writer.flush()
-            #     val_result_history[iteration] = {'loss': val_loss, 'lang_stats': lang_stats, 'predictions': predictions}
-            #
-            #     # Save model if is improving on validation result
-            #
-            #     current_score = lang_stats['CIDEr']
-            #
-            #     best_flag = False
-            #     if True:  # if true
-            #         if best_val_score is None or current_score > best_val_score:
-            #             best_val_score = current_score
-            #             best_flag = True
-            #         torch.save(model.state_dict(), os.path.join(checkpoint_path, 'model.pth'))
-            #         print("model saved to {}".format(checkpoint_path))
-            #         torch.save(optimizer.state_dict(), os.path.join(checkpoint_path, 'optimizer.pth'))
-            #
-            #         # Dump miscalleous informations
-            #         infos['iter'] = iteration
-            #         infos['epoch'] = epoch
-            #         # infos['iterators'] = loader.iterators
-            #         # infos['split_ix'] = loader.split_ix
-            #         infos['best_val_score'] = best_val_score
-            #         # infos['opt'] = opt
-            #         # infos['vocab'] = loader.get_vocab()
-            #
-            #         histories['val_result_history'] = val_result_history
-            #         histories['loss_history'] = loss_history
-            #         histories['lr_history'] = lr_history
-            #         histories['ss_prob_history'] = ss_prob_history
-            #         with open(os.path.join(checkpoint_path, 'infos ' + '.pkl'), 'wb') as f:
-            #             cPickle.dump(infos, f)
-            #         with open(os.path.join(checkpoint_path, 'histories_'  + '.pkl'), 'wb') as f:
-            #             cPickle.dump(histories, f)
-            #
-            #         if best_flag:
-            #             torch.save(model.state_dict(), os.path.join(checkpoint_path, 'model-best.pth'))
-            #             print("model saved to {}".format(checkpoint_path))
-            #             with open(os.path.join(checkpoint_path, 'infos_' + '-best.pkl'), 'wb') as f:
-            #                 cPickle.dump(infos, f)
+            if iteration % save_checkpoint_every == 0:
+                eval_data_loader = get_loader(batch_size, shuffle=False, num_workers=num_workers, if_train=False)
+                val_loss, predictions, lang_stats = eval_utils.eval_split(model, criterion, eval_data_loader)
+
+                # Write validation result into summary
+
+                add_summary_value(tf_summary_writer, 'validation loss', val_loss, iteration)
+                for k, v in lang_stats.items():
+                    add_summary_value(tf_summary_writer, k, v, iteration)
+                tf_summary_writer.flush()
+                val_result_history[iteration] = {'loss': val_loss, 'lang_stats': lang_stats, 'predictions': predictions}
+
+                # Save model if is improving on validation result
+
+                current_score = lang_stats['CIDEr']
+
+                best_flag = False
+                if True:  # if true
+                    if best_val_score is None or current_score > best_val_score:
+                        best_val_score = current_score
+                        best_flag = True
+                    torch.save(model.state_dict(), os.path.join(checkpoint_path, 'model.pth'))
+                    print("model saved to {}".format(checkpoint_path))
+                    torch.save(optimizer.state_dict(), os.path.join(checkpoint_path, 'optimizer.pth'))
+
+                    # Dump miscalleous informations
+                    infos['iter'] = iteration
+                    infos['epoch'] = epoch
+                    # infos['iterators'] = loader.iterators
+                    # infos['split_ix'] = loader.split_ix
+                    infos['best_val_score'] = best_val_score
+                    # infos['opt'] = opt
+                    # infos['vocab'] = loader.get_vocab()
+
+                    histories['val_result_history'] = val_result_history
+                    histories['loss_history'] = loss_history
+                    histories['lr_history'] = lr_history
+                    histories['ss_prob_history'] = ss_prob_history
+                    with open(os.path.join(checkpoint_path, 'infos ' + '.pkl'), 'wb') as f:
+                        cPickle.dump(infos, f)
+                    with open(os.path.join(checkpoint_path, 'histories_'  + '.pkl'), 'wb') as f:
+                        cPickle.dump(histories, f)
+
+                    if best_flag:
+                        torch.save(model.state_dict(), os.path.join(checkpoint_path, 'model-best.pth'))
+                        print("model saved to {}".format(checkpoint_path))
+                        with open(os.path.join(checkpoint_path, 'infos_' + '-best.pkl'), 'wb') as f:
+                            cPickle.dump(infos, f)
 
 
             # Print log info

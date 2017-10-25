@@ -2,10 +2,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import collections
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+
 
 # Input: seq, N*D numpy array, with element 0 .. vocab_size. 0 is END token.
 def decode_sequence(ix_to_word, seq):
@@ -14,8 +14,8 @@ def decode_sequence(ix_to_word, seq):
     for i in range(N):
         txt = ''
         for j in range(D):
-            ix = seq[i,j]
-            if ix > 0 :
+            ix = seq[i, j]
+            if ix > 0:
                 if j >= 1:
                     txt = txt + ' '
                 txt = txt + ix_to_word[str(ix)]

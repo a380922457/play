@@ -10,19 +10,20 @@ import tensorflow as tf
 import numpy as np
 from time import time
 
-image_dir = '/media/father/新加卷/image_feature_att'
+train_image_dir = '/media/father/新加卷/image_feature_att'
+val_image_dir = '/media/father/新加卷/image_feature_att'
 train_captions_file = '/media/father/新加卷1/ai_challenger_caption_20170902/train.json'
 val_captions_file = '/media/father/新加卷/ai_challenger_caption_20170902/val.json'
 
 
-# image_dir = "/Users/lianghangming/Desktop/image_feature_att"
-# captions_file = "/Users/lianghangming/Desktop/new.json"
 class MyDataset(data.Dataset):
     def __init__(self, if_train):
         if if_train:
+            self.image_dir = train_image_dir
             with tf.gfile.FastGFile(train_captions_file, "r") as f:
                 self.caption_data = json.load(f)
         else:
+            self.image_dir = val_image_dir
             with tf.gfile.FastGFile(val_captions_file, "r") as f:
                 self.caption_data = json.load(f)
 
@@ -32,12 +33,7 @@ class MyDataset(data.Dataset):
         caption = line["caption"]
         img_id = line['image_id']
         target = torch.Tensor(caption)
-        image = np.load(os.path.join(image_dir, str(img_id))+".npz")['feat']
-
-        # except:
-        # image = np.load(image_dir+"/0a29e5848947a79fe6236c5d46d290005c69d4c9.jpg.npz")["feat"]
-        # target = [1, 3, 3, 4, 5, 6, 2]
-        # target = torch.Tensor(target)
+        image = np.load(os.path.join(self.image_dir, str(img_id))+".npz")['feat']
         return image, target
 
     def __len__(self):
