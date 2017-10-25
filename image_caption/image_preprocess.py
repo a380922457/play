@@ -1,3 +1,4 @@
+# encoding: utf-8
 from random import normalvariate
 import numpy as np
 import os

@@ -13,11 +13,11 @@ import misc.resnet as resnet
 import torch
 from torch.autograd import Variable
 
-train_captions_file = '/media/father/d/ai_challenger_caption_20170902/caption_train_annotations_20170902.json'
 image_dir = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_images_20170910'
 val_captions_file = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_annotations_20170910.json'
 output_dir = '/media/father/d/ai_challenger_caption_validation_20170910/val_image_att'
-word_counts_output_file = '/media/father/d/ai_challenger_caption_20170902/vocab.json'
+word_counts_output_file = '/media/father/d/ai_challenger_caption_validation_20170910/vocab.json'
+tokenized_json_file = '/media/father/d/ai_challenger_caption_validation_20170910//tokenized.json'
 new_json_file = '/media/father/d/ai_challenger_caption_validation_20170910//new.json'
 
 start_word = "<S>"
@@ -44,31 +44,6 @@ class Vocabulary(object):
             return self._unk_id
 
 
-def _create_vocab(captions):
-    print("Creating vocabulary.")
-    counter = Counter()
-    for c in captions:
-        counter.update(c)
-    print("Total words:", len(counter))
-
-    word_counts = [x for x in counter.items() if x[1] >= 2]
-    word_counts.sort(key=lambda x: x[1], reverse=True)
-    print("Words in vocabulary:", len(word_counts))
-
-    # with tf.gfile.FastGFile(word_counts_output_file, "w") as f:
-    #     f.write("\n".join(["%s %d" % (w, c) for w, c in word_counts]))
-    # print("Wrote vocabulary file")
-
-    reverse_vocab = [x[0] for x in word_counts]
-    unk_id = len(reverse_vocab)
-    vocab_dict = dict([(x, y) for (y, x) in enumerate(reverse_vocab)])
-    with open(word_counts_output_file, 'w') as f:
-        json.dump(vocab_dict, f)
-    vocab = Vocabulary(vocab_dict, unk_id)
-
-    return vocab
-
-
 def _process_captions(captions_file):
     with tf.gfile.FastGFile(captions_file, "r") as f:
         caption_data = json.load(f)
@@ -81,18 +56,25 @@ def _process_captions(captions_file):
         for c in caption:
             captions.append(c)
     print("Finished processing %d captions in %s" % (num_captions, captions_file))
-    vocab = _create_vocab(captions)
+    with open(word_counts_output_file, 'r') as f:
+        vocab = json.load(f)
+    unk_id = len(vocab)
+    vocab = Vocabulary(vocab, unk_id)
 
-    # new_json = []
-    #
-    # for line in caption_data:
-    #     for caption in line["caption"]:
-    #         caption = _caption_append(caption)
-    #         caption_ids = [vocab.word_to_id(word) for word in caption]
-    #         print(caption_ids)
-    #         new_json.append({"image_id": line["image_id"], "caption": caption_ids})
-    # with open(new_json_file, 'w') as f:
-    #     json.dump(new_json, f)
+    new_json = []
+    tokenized_json = []
+    for line in caption_data:
+        captions = []
+        for caption in line["caption"]:
+            caption = _caption_append(caption)
+            caption_ids = [vocab.word_to_id(word) for word in caption]
+            captions.append(caption_ids)
+            new_json.append({"image_id": line["image_id"], "caption": caption_ids})
+        tokenized_json.append({"image_id": line["image_id"], "captions": captions})
+    with open(new_json_file, 'w') as f:
+        json.dump(new_json, f)
+    with open(tokenized_json_file, 'w') as f:
+        json.dump(tokenized_json, f)
 
 
 def _process_images(image_dir):
@@ -120,7 +102,7 @@ def _process_images(image_dir):
 
 
 def main():
-    _process_captions(train_captions_file)
+    _process_captions(val_captions_file)
 
     # _process_images(image_dir)
 
