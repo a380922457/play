@@ -23,10 +23,12 @@ class Bleu:
         assert(gts.keys() == res.keys())
         imgIds = gts.keys()
 
+
         bleu_scorer = BleuScorer(n=self._n)
         for id in imgIds:
             hypo = res[id]
             ref = gts[id]
+
 
             # Sanity check.
             assert(type(hypo) is list)

@@ -12,7 +12,7 @@ from six.moves import cPickle
 from data_loader import get_loader
 from models.attention_model_v2 import Attention_Model
 from utils import LanguageModelCriterion
-import eval_utils
+from eval_utils import Evaluator
 
 checkpoint_path = "./checkpoint_path/"
 model_path = './models/'
@@ -22,7 +22,6 @@ log_step = 100
 save_step = 10000
 
 embed_size = 256
-hidden_size = 128
 num_layers = 1
 
 num_epochs = 5
@@ -76,6 +75,7 @@ def main():
     model.train()
     criterion = LanguageModelCriterion()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    evaluator = Evaluator()
 
     # if vars(opt).get('start_from', None) is not None:
     #     optimizer.load_state_dict(torch.load(os.path.join(opt.start_from, 'optimizer.pth')))
@@ -90,7 +90,6 @@ def main():
             if use_cuda:
                 images = images.cuda()
                 captions = captions.cuda()
-            # targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
             # Forward, Backward and Optimize
             optimizer.zero_grad()
             outputs = model(captions, images)
@@ -110,8 +109,7 @@ def main():
             #     ss_prob_history[iteration] = model.ss_prob
 
             if iteration % save_checkpoint_every == 0:
-                eval_data_loader = get_loader(batch_size, shuffle=False, num_workers=num_workers, if_train=False)
-                val_loss, predictions, lang_stats = eval_utils.eval_split(model, criterion, eval_data_loader)
+                val_loss, predictions, lang_stats = evaluator.eval_split(model, criterion)
 
                 # Write validation result into summary
 
@@ -149,7 +147,7 @@ def main():
                     histories['ss_prob_history'] = ss_prob_history
                     with open(os.path.join(checkpoint_path, 'infos ' + '.pkl'), 'wb') as f:
                         cPickle.dump(infos, f)
-                    with open(os.path.join(checkpoint_path, 'histories_'  + '.pkl'), 'wb') as f:
+                    with open(os.path.join(checkpoint_path, 'histories_' + '.pkl'), 'wb') as f:
                         cPickle.dump(histories, f)
 
                     if best_flag:
