@@ -109,7 +109,7 @@ def main():
             #     ss_prob_history[iteration] = model.ss_prob
 
             if iteration % save_checkpoint_every == 0:
-                val_loss, predictions, lang_stats = evaluator.eval_split(model, criterion)
+                val_loss, predictions, lang_stats = evaluator.evaluate(model, criterion)
 
                 # Write validation result into summary
 

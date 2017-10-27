@@ -36,7 +36,7 @@ class Attention_Model(nn.Module):
 
         self.init_weights()
 
-    def beam_search(self, state, logprobs, *args, **kwargs):
+    def beam_search(self, state, logprobs, beam_size=3, *args):
         # args are the miscelleous inputs to the core in addition to embedded word and state
         # kwargs only accept opt
 
@@ -90,9 +90,7 @@ class Attention_Model(nn.Module):
             state = new_state
             return beam_seq, beam_seq_logprobs, beam_logprobs_sum, state, candidates
 
-        # start beam search
-        opt = kwargs['opt']
-        beam_size = opt.get('beam_size', 10)
+        beam_size = beam_size
 
         beam_seq = torch.LongTensor(self.seq_length, beam_size).zero_()
         beam_seq_logprobs = torch.FloatTensor(self.seq_length, beam_size).zero_()
@@ -108,17 +106,8 @@ class Attention_Model(nn.Module):
             # suppress UNK tokens in the decoding
             logprobsf[:, logprobsf.size(1) - 1] = logprobsf[:, logprobsf.size(1) - 1] - 1000
 
-            beam_seq, \
-            beam_seq_logprobs, \
-            beam_logprobs_sum, \
-            state, \
-            candidates_divm = beam_step(logprobsf,
-                                        beam_size,
-                                        t,
-                                        beam_seq,
-                                        beam_seq_logprobs,
-                                        beam_logprobs_sum,
-                                        state)
+            beam_seq, beam_seq_logprobs, beam_logprobs_sum, state, candidates_divm = beam_step(logprobsf,
+                                        beam_size, t, beam_seq, beam_seq_logprobs, beam_logprobs_sum, state)
 
             for vix in range(beam_size):
                 # if time's up... or if end token is reached then copy beams
@@ -150,50 +139,48 @@ class Attention_Model(nn.Module):
         image_map = self.linear(fc_feats).view(-1, self.num_layers, self.rnn_size).transpose(0, 1)
         return (image_map, image_map)
 
+    def get_logprobs_state(self, it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state):
+        # 'it' is Variable contraining a word index
+        xt = self.embed(it)
 
-    # def get_logprobs_state(self, it, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state):
-    #     # 'it' is Variable contraining a word index
-    #     xt = self.embed(it)
-    #
-    #     output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state)
-    #     logprobs = F.log_softmax(self.logit(output))
-    #
-    #     return logprobs, state
+        output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state)
+        logprobs = F.log_softmax(self.logit(output))
 
-    # def sample_beam(self, fc_feats, att_feats, opt={}):
-    #     beam_size = opt.get('beam_size', 10)
-    #     batch_size = fc_feats.size(0)
-    #
-    #     # Project the attention feats first to reduce memory and computation comsumptions.
-    #     p_att_feats = self.ctx2att(att_feats.view(-1, self.att_feat_size))
-    #     p_att_feats = p_att_feats.view(*(att_feats.size()[:-1] + (self.att_hid_size,)))
-    #
-    #     assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
-    #     seq = torch.LongTensor(self.seq_length, batch_size).zero_()
-    #     seqLogprobs = torch.FloatTensor(self.seq_length, batch_size)
-    #     # lets process every image independently for now, for simplicity
-    #
-    #     self.done_beams = [[] for _ in range(batch_size)]
-    #     for k in range(batch_size):
-    #         state = self.init_hidden(beam_size)
-    #         tmp_fc_feats = fc_feats[k:k + 1].expand(beam_size, self.fc_feat_size)
-    #         tmp_att_feats = att_feats[k:k + 1].expand(*((beam_size,) + att_feats.size()[1:])).contiguous()
-    #         tmp_p_att_feats = p_att_feats[k:k + 1].expand(*((beam_size,) + p_att_feats.size()[1:])).contiguous()
-    #
-    #         for t in range(1):
-    #             if t == 0:  # input <bos>
-    #                 it = fc_feats.data.new(beam_size).long().zero_()
-    #                 xt = self.embed(Variable(it, requires_grad=False))
-    #
-    #             output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state)
-    #             logprobs = F.log_softmax(self.logit(output))
-    #
-    #         self.done_beams[k] = self.beam_search(state, logprobs, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats,
-    #                                               opt=opt)
-    #         seq[:, k] = self.done_beams[k][0]['seq']  # the first beam has highest cumulative score
-    #         seqLogprobs[:, k] = self.done_beams[k][0]['logps']
-    #     # return the samples and their log likelihoods
-    #     return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
+        return logprobs, state
+
+    def sample_beam(self, fc_feats, att_feats, beam_size=3):
+        beam_size = beam_size
+        batch_size = fc_feats.size(0)
+
+        # Project the attention feats first to reduce memory and computation comsumptions.
+        p_att_feats = self.ctx2att(att_feats.view(-1, self.att_feat_size))
+        p_att_feats = p_att_feats.view(*(att_feats.size()[:-1] + (self.att_hid_size,)))
+
+        assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
+        seq = torch.LongTensor(self.seq_length, batch_size).zero_()
+        seqLogprobs = torch.FloatTensor(self.seq_length, batch_size)
+        # lets process every image independently for now, for simplicity
+
+        self.done_beams = [[] for _ in range(batch_size)]
+        for k in range(batch_size):
+            state = self.init_hidden(beam_size)
+            tmp_fc_feats = fc_feats[k:k + 1].expand(beam_size, self.fc_feat_size)
+            tmp_att_feats = att_feats[k:k + 1].expand(*((beam_size,) + att_feats.size()[1:])).contiguous()
+            tmp_p_att_feats = p_att_feats[k:k + 1].expand(*((beam_size,) + p_att_feats.size()[1:])).contiguous()
+
+            for t in range(1):
+                if t == 0:  # input <bos>
+                    it = fc_feats.data.new(beam_size).long().zero_()
+                    xt = self.embed(Variable(it, requires_grad=False))
+
+                output, state = self.core(xt, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats, state)
+                logprobs = F.log_softmax(self.logit(output))
+
+            self.done_beams[k] = self.beam_search(state, logprobs, tmp_fc_feats, tmp_att_feats, tmp_p_att_feats)
+            seq[:, k] = self.done_beams[k][0]['seq']  # the first beam has highest cumulative score
+            seqLogprobs[:, k] = self.done_beams[k][0]['logps']
+        # return the samples and their log likelihoods
+        return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
     def forward(self, seq, att_feats):
         p_att_feats = self.ctx2att(att_feats.view(-1, self.att_feat_size))

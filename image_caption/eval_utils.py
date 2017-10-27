@@ -45,7 +45,7 @@ class Evaluator(object):
 
         return m1_score
 
-    def eval_split(self, model, criterion):
+    def evaluate(self, model, criterion):
         model.eval()
         for i, (images, captions, masks, img_id) in enumerate(self.loader):
             images = Variable(images, requires_grad=False)
