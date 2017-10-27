@@ -13,11 +13,12 @@ from time import time
 train_image_dir = '/media/father/新加卷/image_feature_att'
 val_image_dir = '/media/father/新加卷/image_feature_att'
 train_captions_file = '/media/father/新加卷1/ai_challenger_caption_20170902/train.json'
-val_captions_file = '/media/father/新加卷/ai_challenger_caption_20170902/val.json'
+val_captions_file = '/media/father/d/ai_challenger_caption_validation_20170910/val.json'
 
 
 class MyDataset(data.Dataset):
     def __init__(self, if_train):
+        self.if_train = if_train
         if if_train:
             self.image_dir = train_image_dir
             with tf.gfile.FastGFile(train_captions_file, "r") as f:
@@ -34,27 +35,30 @@ class MyDataset(data.Dataset):
         img_id = line['image_id']
         target = torch.Tensor(caption)
         image = np.load(os.path.join(self.image_dir, str(img_id))+".npz")['feat']
-        return image, target
+        return image, target, img_id
 
     def __len__(self):
         return len(self.caption_data)
 
 
-def collate_fn(data):
+def collate_fn(self, data):
     data.sort(key=lambda x: len(x[1]), reverse=True)
-    images, captions = zip(*data)
+    images, target, img_id = zip(*data)
 
     images = torch.from_numpy(np.array(images))
 
     # Merge captions (from tuple of 1D tensor to 2D tensor).
-    lengths = [len(cap) for cap in captions]
-    targets = torch.zeros(len(captions), max(lengths)).long()
-    masks = torch.zeros(len(captions), max(lengths)).long()
-    for i, cap in enumerate(captions):
+    lengths = [len(cap) for cap in target]
+    targets = torch.zeros(len(target), max(lengths)).long()
+    masks = torch.zeros(len(target), max(lengths)).long()
+    for i, cap in enumerate(target):
         end = lengths[i]
         targets[i, :end] = cap[:end]
         masks[i, :end] = 1
-    return images, targets, masks
+    if self.if_train:
+        return images, targets, masks
+    else:
+        return images, targets, masks, img_id
 
 
 def get_loader(batch_size, shuffle, num_workers, if_train):

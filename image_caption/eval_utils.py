@@ -9,12 +9,14 @@ import misc.utils as utils
 from data_loader import get_loader
 from pycxtools.coco import COCO
 from pycxevalcap.eval import COCOEvalCap
+import hashlib
+import sys
 
 
 class Evaluator(object):
     def __init__(self):
         super(Evaluator, self).__init__()
-        self.coco = COCO("")
+        self.coco = COCO("/media/father/d/ai_challenger_caption_validation_20170910/test100.json")
         self.loader = get_loader(batch_size=100, shuffle=False, num_workers=10, if_train=False)
 
     def compute_m1(self, json_predictions_file):
@@ -25,15 +27,19 @@ class Evaluator(object):
         coco_eval.evaluate()
 
         for metric, score in coco_eval.eval.items():
-            print('%s: %.3f' % (metric, score))
+            # print('%s: %.3f' % (metric, score))
             m1_score[metric] = score
         return m1_score
 
-    def language_eval(self, preds):
-        json_predictions_file = os.path.join('/eval_results/test.json')
-
+    def language_eval(self, seq, image_id):
+        json_predictions_file = './eval_results/result.json'
+        data = zip(seq, image_id)
+        lines = []
+        for seq, image_id in data:
+            line = {"caption": seq, "image_id": int(int(hashlib.sha256(image_id).hexdigest(), 16) % sys.maxint)}
+            lines.append(line)
         with open(json_predictions_file, "w") as f:
-            json.dump(results, f)
+            json.dump(lines, f)
 
         m1_score = self.compute_m1(json_predictions_file)
 
@@ -41,8 +47,7 @@ class Evaluator(object):
 
     def eval_split(self, model, criterion):
         model.eval()
-
-        for i, (images, captions, masks) in enumerate(self.loader):
+        for i, (images, captions, masks, img_id) in enumerate(self.loader):
             images = Variable(images, requires_grad=False)
             captions = Variable(captions, requires_grad=False)
             # torch.cuda.synchronize()
@@ -56,7 +61,7 @@ class Evaluator(object):
 
             decoded_seq = utils.decode_sequence(self.loader.get_vocab(), seq)
 
-            lang_stats = self.language_eval(decoded_seq)
+            lang_stats = self.language_eval(decoded_seq, img_id)
 
         model.train()
         return loss, decoded_seq, lang_stats

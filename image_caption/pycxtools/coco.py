@@ -2,7 +2,6 @@
 import json
 import datetime
 import jieba
-import sys
 import hashlib
 import sys
 reload(sys)

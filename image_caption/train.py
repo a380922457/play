@@ -15,7 +15,7 @@ from utils import LanguageModelCriterion
 from eval_utils import Evaluator
 
 checkpoint_path = "./checkpoint_path/"
-model_path = './models/'
+model_path = './model_data/'
 save_checkpoint_every = 10000
 crop_size = 224
 log_step = 100
@@ -57,8 +57,8 @@ def main():
     #         with open(os.path.join(opt.start_from, 'histories_'+'.pkl')) as f:
     #             histories = cPickle.load(f)
 
-    iteration = infos.get('iter', 0)
-    epoch = infos.get('epoch', 0)
+    # iteration = infos.get('iter', 0)
+    # epoch = infos.get('epoch', 0)
 
     val_result_history = histories.get('val_result_history', {})
     loss_history = histories.get('loss_history', {})
@@ -83,7 +83,7 @@ def main():
     # Train the Models
     total_step = len(data_loader)
     for epoch in range(num_epochs):
-        for i, (images, captions, masks) in enumerate(data_loader):
+        for iteration, (images, captions, masks) in enumerate(data_loader):
             images = Variable(images, requires_grad=False)
             captions = Variable(captions, requires_grad=False)
             # torch.cuda.synchronize()
@@ -125,9 +125,9 @@ def main():
 
                 best_flag = False
                 if True:  # if true
-                    if best_val_score is None or current_score > best_val_score:
-                        best_val_score = current_score
-                        best_flag = True
+                    # if best_val_score is None or current_score > best_val_score:
+                    #     best_val_score = current_score
+                    #     best_flag = True
                     torch.save(model.state_dict(), os.path.join(checkpoint_path, 'model.pth'))
                     print("model saved to {}".format(checkpoint_path))
                     torch.save(optimizer.state_dict(), os.path.join(checkpoint_path, 'optimizer.pth'))
@@ -136,16 +136,13 @@ def main():
                     infos['iter'] = iteration
                     infos['epoch'] = epoch
                     # infos['iterators'] = loader.iterators
-                    # infos['split_ix'] = loader.split_ix
-                    infos['best_val_score'] = best_val_score
-                    # infos['opt'] = opt
-                    # infos['vocab'] = loader.get_vocab()
+                    # infos['best_val_score'] = best_val_score
 
                     histories['val_result_history'] = val_result_history
                     histories['loss_history'] = loss_history
                     histories['lr_history'] = lr_history
                     histories['ss_prob_history'] = ss_prob_history
-                    with open(os.path.join(checkpoint_path, 'infos ' + '.pkl'), 'wb') as f:
+                    with open(os.path.join(checkpoint_path, 'infos_' + '.pkl'), 'wb') as f:
                         cPickle.dump(infos, f)
                     with open(os.path.join(checkpoint_path, 'histories_' + '.pkl'), 'wb') as f:
                         cPickle.dump(histories, f)
@@ -166,6 +163,7 @@ def main():
                       % (epoch, num_epochs, iteration, total_step, loss.data[0], np.exp(loss.data[0])))
                 starttime = time()
             iteration += 1
+
 
 if __name__ == '__main__':
     main()

@@ -13,10 +13,11 @@ import misc.resnet as resnet
 import torch
 from torch.autograd import Variable
 
+val_image_dir = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_images_20170910'
 train_captions_file = '/media/father/d/ai_challenger_caption_20170902/caption_train_annotations_20170902.json'
 image_dir = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_images_20170910'
 val_captions_file = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_annotations_20170910.json'
-output_dir = '/media/father/d/ai_challenger_caption_validation_20170910/val_image_att'
+output_dir = '/media/father/c/val_image_feature_att'
 word_counts_output_file = '/media/father/d/ai_challenger_caption_20170902/vocab.json'
 new_json_file = '/media/father/d/ai_challenger_caption_validation_20170910//new.json'
 
@@ -120,9 +121,9 @@ def _process_images(image_dir):
 
 
 def main():
-    _process_captions(train_captions_file)
+    # _process_captions(train_captions_file)
 
-    # _process_images(image_dir)
+    _process_images(image_dir)
 
 
 main()
