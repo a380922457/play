@@ -205,18 +205,6 @@ class Attention_Model(nn.Module):
         output = output.squeeze(0)
         return output, state
 
-    def forward(self, seq, att_feats):
-        state = self.init_hidden(att_feats.size(0))
-        outputs = []
-        for i in range(seq.size(1)):
-            it = seq[:, i].clone()
-            if i >= 1 and seq[:, i].data.sum() == 0:
-                break
-            output, state = self.core(it, att_feats, state)
-            output = F.log_softmax(self.logit(output))
-            outputs.append(output)
-        return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
-
     def lstm(self, xt, state, att_res):
         # LSTM calculation
         all_input_sums = self.i2h(xt) + self.h2h(state[0][-1])
@@ -235,6 +223,18 @@ class Attention_Model(nn.Module):
         state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
         return output, state
 
+    def forward(self, seq, att_feats):
+        state = self.init_hidden(att_feats.size(0))
+        outputs = []
+        for i in range(seq.size(1)):
+            it = seq[:, i].clone()
+            if i >= 1 and seq[:, i].data.sum() == 0:
+                break
+            output, state = self.core(it, att_feats, state)
+            output = F.log_softmax(self.logit(output))
+            outputs.append(output)
+        return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
+
     def sample(self, att_feats, sample_max=1):
         beam_size = 1
         temperature = 1.0
@@ -248,12 +248,11 @@ class Attention_Model(nn.Module):
         seq_log_prob = []
         for t in range(self.seq_length + 1):
             if t == 0:  # input <bos>
-                it = (Variable(torch.from_numpy(np.ones(batch_size)).long())).cuda()
+                # it = (Variable(torch.from_numpy(np.ones(batch_size)).long())).cuda()
+                it = torch.from_numpy(np.ones(batch_size)).long()
             elif sample_max:
                 sample_log_prob, it = torch.max(log_prob.data, 1)
-                # print torch.max(log_prob.data, 1)
                 it = it.view(-1).long()
-                it = (Variable(it, requires_grad=False))
             else:
                 if temperature == 1.0:
                     prob_prev = torch.exp(log_prob.data).cpu()  # fetch prev distribution: shape Nx(M+1)
@@ -278,6 +277,7 @@ class Attention_Model(nn.Module):
                 seq.append(it)  # seq[t] the input of t+2 time step
 
                 seq_log_prob.append(sample_log_prob.view(-1))
+            it = Variable(it, requires_grad=False)
             log_prob, state = self.get_log_prob(it, att_feats, state)
 
         return (torch.cat([_.unsqueeze(1) for _ in seq], 1)).data, torch.cat([_.unsqueeze(1) for _ in seq_log_prob], 1)

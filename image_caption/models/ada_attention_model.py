@@ -6,9 +6,9 @@ import math
 from torch.nn import Parameter
 
 
-class AdaAtt_lstm(nn.Module):
+class lstm(nn.Module):
     def __init__(self, input_encoding_size=300, rnn_size=1024, num_layers=1, drop_prob_lm=0.5):
-        super(AdaAtt_lstm, self).__init__()
+        super(lstm, self).__init__()
         self.input_encoding_size = input_encoding_size
         self.rnn_size = rnn_size
         self.num_layers = num_layers
@@ -124,7 +124,7 @@ class AdaAttModel(nn.Module):
         self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
         self.ctx2att = nn.Linear(self.rnn_size, self.att_hid_size)
 
-        self.lstm = AdaAtt_lstm(input_encoding_size=input_encoding_size, rnn_size=rnn_size, num_layers=num_layers, drop_prob_lm=drop_prob_lm)
+        self.lstm = lstm(input_encoding_size=input_encoding_size, rnn_size=rnn_size, num_layers=num_layers, drop_prob_lm=drop_prob_lm)
         self.attention = AdaAtt_attention(input_encoding_size=input_encoding_size, rnn_size=rnn_size, drop_prob_lm=drop_prob_lm, att_hid_size=att_hid_size, att_feat_size=2048)
 
     def init_hidden(self, batch_size):
