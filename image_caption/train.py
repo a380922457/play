@@ -83,7 +83,7 @@ def main():
     # Train the Models
     total_step = len(data_loader)
     for epoch in range(num_epochs):
-        for iteration, (images, captions, masks) in enumerate(data_loader):
+        for iteration, (images, captions, masks, _) in enumerate(data_loader):
             images = Variable(images, requires_grad=False)
             captions = Variable(captions, requires_grad=False)
             # torch.cuda.synchronize()

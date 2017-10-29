@@ -1,17 +1,16 @@
 from __future__ import absolute_import
 from __future__ import division
-from __future__ import print_function
 
 from torch.autograd import Variable
-import json
-import os
-import misc.utils as utils
+import utils
 from data_loader import get_loader
 from pycxtools.coco import COCO
 from pycxevalcap.eval import COCOEvalCap
-import hashlib
+import os
+import json
 import sys
-
+reload(sys)
+sys.setdefaultencoding( "utf-8" )
 
 class Evaluator(object):
     def __init__(self):
@@ -36,7 +35,7 @@ class Evaluator(object):
         data = zip(seq, image_id)
         lines = []
         for seq, image_id in data:
-            line = {"caption": seq, "image_id": int(int(hashlib.sha256(image_id).hexdigest(), 16) % sys.maxint)}
+            line = {"caption": seq, "image_id": os.path.splitext(image_id)[0]}
             lines.append(line)
         with open(json_predictions_file, "w") as f:
             json.dump(lines, f)
@@ -52,14 +51,14 @@ class Evaluator(object):
             captions = Variable(captions, requires_grad=False)
             # torch.cuda.synchronize()
             images = images.cuda()
-            cuda_captions = captions.cuda()
+            captions = captions.cuda()
             outputs = model(captions, images)
-            loss = criterion(outputs[:, :-1], cuda_captions[:, 1:], masks[:, 1:])
+            loss = criterion(outputs[:, :-1], captions[:, 1:], masks[:, 1:])
 
             # forward the model to also get generated samples for each image
             seq, _ = model.sample(images)
 
-            decoded_seq = utils.decode_sequence(self.loader.get_vocab(), seq)
+            decoded_seq = utils.decode_sequence(seq)
 
             lang_stats = self.language_eval(decoded_seq, img_id)
 

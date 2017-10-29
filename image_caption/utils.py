@@ -1,7 +1,8 @@
-
 import torch
 import torch.nn as nn
+import json
 
+decoder_path = '/media/father/d/ai_challenger_caption_20170902/inference_vocab.json'
 
 def if_use_att(caption_model):
     # Decide if load attention feature according to caption model
@@ -11,19 +12,21 @@ def if_use_att(caption_model):
 
 
 # Input: seq, N*D numpy array, with element 0 .. vocab_size. 0 is END token.
-def decode_sequence(ix_to_word, seq):
+def decode_sequence(seq):
+    with open(decoder_path, "r") as f:
+        decoder = json.load(f)
     N, D = seq.size()
     out = []
     for i in range(N):
         txt = ''
         for j in range(D):
-            ix = seq[i,j]
-            if ix > 0 :
-                if j >= 1:
-                    txt = txt + ' '
-                txt = txt + ix_to_word[str(ix)]
-            else:
-                break
+            ix = seq[i, j]
+            # if ix > 0 :
+            if j >= 1:
+                txt = txt + ' '
+            txt = txt + decoder[str(ix)]
+            # else:
+            #     break
         out.append(txt)
     return out
 

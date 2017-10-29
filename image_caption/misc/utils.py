@@ -8,7 +8,7 @@ from torch.autograd import Variable
 
 
 # Input: seq, N*D numpy array, with element 0 .. vocab_size. 0 is END token.
-def decode_sequence(ix_to_word, seq):
+def decode_sequence(seq):
     N, D = seq.size()
     out = []
     for i in range(N):

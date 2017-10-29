@@ -12,14 +12,16 @@ from misc.resnet_utils import myResnet
 import misc.resnet as resnet
 import torch
 from torch.autograd import Variable
-
-val_image_dir = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_images_20170910'
-train_captions_file = '/media/father/d/ai_challenger_caption_20170902/caption_train_annotations_20170902.json'
-image_dir = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_images_20170910'
+import sys
+reload(sys)
+sys.setdefaultencoding( "utf-8" )
+# val_image_dir = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_images_20170910'
+# train_captions_file = '/media/father/d/ai_challenger_caption_20170902/caption_train_annotations_20170902.json'
+# image_dir = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_images_20170910'
 val_captions_file = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_annotations_20170910.json'
-output_dir = '/media/father/c/val_image_feature_att'
-word_counts_output_file = '/media/father/d/ai_challenger_caption_20170902/vocab.json'
-new_json_file = '/media/father/d/ai_challenger_caption_validation_20170910//new.json'
+# output_dir = '/media/father/c/val_image_feature_att'
+# word_counts_output_file = '/media/father/d/ai_challenger_caption_20170902/vocab.json'
+new_json_file = '/media/father/d/ai_challenger_caption_validation_20170910//val.json'
 
 start_word = "<S>"
 end_word = "</S>"
@@ -63,8 +65,8 @@ def _create_vocab(captions):
     reverse_vocab = [x[0] for x in word_counts]
     unk_id = len(reverse_vocab)
     vocab_dict = dict([(x, y) for (y, x) in enumerate(reverse_vocab)])
-    with open(word_counts_output_file, 'w') as f:
-        json.dump(vocab_dict, f)
+    # with open(word_counts_output_file, 'w') as f:
+    #     json.dump(vocab_dict, f)
     vocab = Vocabulary(vocab_dict, unk_id)
 
     return vocab
@@ -82,18 +84,21 @@ def _process_captions(captions_file):
         for c in caption:
             captions.append(c)
     print("Finished processing %d captions in %s" % (num_captions, captions_file))
-    vocab = _create_vocab(captions)
+    # vocab = _create_vocab(captions)
+    with open('/media/father/d/ai_challenger_caption_20170902/vocab.json', "r") as f:
+        decoder = json.load(f)
+    new_json = []
+    vocab = Vocabulary(decoder, len(decoder))
 
-    # new_json = []
-    #
-    # for line in caption_data:
-    #     for caption in line["caption"]:
-    #         caption = _caption_append(caption)
-    #         caption_ids = [vocab.word_to_id(word) for word in caption]
-    #         print(caption_ids)
-    #         new_json.append({"image_id": line["image_id"], "caption": caption_ids})
-    # with open(new_json_file, 'w') as f:
-    #     json.dump(new_json, f)
+    for line in caption_data:
+        captions = []
+        for caption in line["caption"]:
+            caption = _caption_append(caption)
+            caption = [vocab.word_to_id(word)for word in caption]
+            captions.append(caption)
+        new_json.append({"image_id": line["image_id"], "caption": captions})
+    with open(new_json_file, 'w') as f:
+        json.dump(new_json, f)
 
 
 def _process_images(image_dir):
@@ -121,9 +126,9 @@ def _process_images(image_dir):
 
 
 def main():
-    # _process_captions(train_captions_file)
+    _process_captions(val_captions_file)
 
-    _process_images(image_dir)
+    # _process_images(image_dir)
 
 
 main()

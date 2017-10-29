@@ -13,12 +13,12 @@ new_data = {}
 annotations = []
 images = []
 for i, line in enumerate(data):
-    if i > 100: break
+    if i > 99: break
     image_id = line["image_id"]
     captions = line["caption"]
     hash_id = int(int(hashlib.sha256(image_id).hexdigest(), 16) % sys.maxint)
     for k, caption in enumerate(captions):
-        annotation = {"id": i * 5 + k + 1, "caption": caption, "image_id": hash_id}
+        annotation = {"id": i * 5 + k + 1, "caption": caption, "image_id": hash_id, "file_name": image_id}
         annotations.append(annotation)
 
         image = {"file_name": os.path.splitext(image_id)[0], "id": hash_id}
