@@ -16,7 +16,7 @@ class Evaluator(object):
     def __init__(self):
         super(Evaluator, self).__init__()
         self.coco = COCO("/media/father/d/ai_challenger_caption_validation_20170910/test100.json")
-        self.loader = get_loader(batch_size=100, shuffle=False, num_workers=10, if_train=False)
+        self.loader = get_loader(batch_size=100, shuffle=False, num_workers=1, if_train=False)
 
     def compute_m1(self, json_predictions_file):
         """Compute m1_score"""

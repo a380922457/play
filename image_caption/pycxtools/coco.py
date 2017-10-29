@@ -27,7 +27,6 @@ class COCO:
         # create index
         print('creating index...')
         imgToAnns = {ann['image_id']: [] for ann in self.dataset['annotations']}
-        print(imgToAnns)
         print("aaaaaaaaaaaaaa,", len(imgToAnns))
         anns = {ann['id']: [] for ann in self.dataset['annotations']}
 

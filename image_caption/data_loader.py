@@ -27,6 +27,7 @@ class MyDataset(data.Dataset):
             self.image_dir = val_image_dir
             with tf.gfile.FastGFile(val_captions_file, "r") as f:
                 self.caption_data = json.load(f)["annotations"]
+                print(self.caption_data)
 
     def __getitem__(self, index):
         """Returns one data pair (image and caption)."""
