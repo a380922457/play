@@ -99,15 +99,6 @@ def main():
             optimizer.step()
             torch.cuda.synchronize()
 
-            # if iteration % log_step == 0:
-            #     add_summary_value(tf_summary_writer, 'train_loss', train_loss, iteration)
-            #     # add_summary_value(tf_summary_writer, 'learning_rate', opt.current_lr, iteration)
-            #     add_summary_value(tf_summary_writer, 'scheduled_sampling_prob', model.ss_prob, iteration)
-            #     tf_summary_writer.flush()
-            #
-            #     loss_history[iteration] = train_loss
-            #     ss_prob_history[iteration] = model.ss_prob
-
             if iteration % save_checkpoint_every == 0:
                 val_loss, predictions, lang_stats = evaluator.evaluate(model, criterion)
 
@@ -162,6 +153,15 @@ def main():
                 print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f'
                       % (epoch, num_epochs, iteration, total_step, loss.data[0], np.exp(loss.data[0])))
                 starttime = time()
+
+                add_summary_value(tf_summary_writer, 'train_loss', train_loss, iteration)
+                # add_summary_value(tf_summary_writer, 'learning_rate', opt.current_lr, iteration)
+                add_summary_value(tf_summary_writer, 'scheduled_sampling_prob', model.ss_prob, iteration)
+                tf_summary_writer.flush()
+
+                loss_history[iteration] = train_loss
+                ss_prob_history[iteration] = model.ss_prob
+
             iteration += 1
 
 
