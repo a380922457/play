@@ -15,12 +15,15 @@ def if_use_att(caption_model):
 def decode_sequence(seq):
     with open(decoder_path, "r") as f:
         decoder = json.load(f)
-    N, D = seq.size()
+        N, D = seq.size()
     out = []
     for i in range(N):
         txt = ''
         for j in range(D):
             ix = seq[i, j]
+            # stop when meet </S>
+            if ix == 2:
+                break
             # if ix > 0 :
             if j >= 1:
                 txt = txt + ' '

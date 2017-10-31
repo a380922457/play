@@ -12,8 +12,8 @@ from time import time
 
 train_image_dir = '/media/father/c/train_image_feature_att'
 val_image_dir = '/media/father/c/val_image_feature_att'
-train_captions_file = '/media/father/d/ai_challenger_caption_20170902/train.json'
-val_captions_file = '/media/father/d/ai_challenger_caption_validation_20170910/test100.json'
+train_captions_file = '/media/father/d/ai_challenger_caption_20170902/train1_1.json'
+val_captions_file = '/media/father/d/ai_challenger_caption_validation_20170910/val1_5.json'
 
 
 class MyDataset(data.Dataset):
@@ -26,17 +26,16 @@ class MyDataset(data.Dataset):
         else:
             self.image_dir = val_image_dir
             with tf.gfile.FastGFile(val_captions_file, "r") as f:
-                self.caption_data = json.load(f)["annotations"]
-                print(self.caption_data)
+                self.caption_data = json.load(f)[:100]
 
     def __getitem__(self, index):
         """Returns one data pair (image and caption)."""
         line = self.caption_data[index]
         if self.if_train:
-            img_id = line["image_id"]
+            caption = line["caption"]
         else:
-            img_id = line['file_name']
-        caption = line["caption"]
+            caption = line["caption"][0]
+        img_id = line["image_id"]
         target = torch.Tensor(caption)
         image = np.load(os.path.join(self.image_dir, str(img_id)) + ".npz")['feat']
         return image, target, img_id
@@ -56,7 +55,7 @@ def collate_fn(data):
     targets = torch.zeros(len(target), max(lengths)).long()
     masks = torch.zeros(len(target), max(lengths)).long()
     for i, cap in enumerate(target):
-        end = lengths[i]
+        end = lengths[i] if lengths[i] < 15 else 15
         targets[i, :end] = cap[:end]
         masks[i, :end] = 1
     return images, targets, masks, img_id

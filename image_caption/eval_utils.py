@@ -27,7 +27,6 @@ class Evaluator(object):
         coco_eval.evaluate()
 
         for metric, score in coco_eval.eval.items():
-            # print('%s: %.3f' % (metric, score))
             m1_score[metric] = score
         return m1_score
 
@@ -64,4 +63,4 @@ class Evaluator(object):
             lang_stats = self.language_eval(decoded_seq, img_id)
 
         model.train()
-        return loss, decoded_seq, lang_stats
+        return loss.data[0], decoded_seq, lang_stats

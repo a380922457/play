@@ -40,7 +40,7 @@ class Attention_Model(nn.Module):
         else:
             return image_map
 
-    def forward(self, att_feats, seq):
+    def forward(self, seq, att_feats):
         state = self.init_hidden(att_feats.mean(2).mean(1).squeeze())
         outputs = []
         for i in range(seq.size(1)):

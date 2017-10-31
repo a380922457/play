@@ -15,13 +15,20 @@ from torch.autograd import Variable
 import sys
 reload(sys)
 sys.setdefaultencoding( "utf-8" )
-# val_image_dir = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_images_20170910'
-# train_captions_file = '/media/father/d/ai_challenger_caption_20170902/caption_train_annotations_20170902.json'
-# image_dir = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_images_20170910'
+
+train_image_dir = '/media/father/d/ai_challenger_caption_20170902/caption_train_images_20170902'
+val_image_dir = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_images_20170910'
+
+train_captions_file = '/media/father/d/ai_challenger_caption_20170902/caption_train_annotations_20170902.json'
 val_captions_file = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_annotations_20170910.json'
-# output_dir = '/media/father/c/val_image_feature_att'
-# word_counts_output_file = '/media/father/d/ai_challenger_caption_20170902/vocab.json'
-new_json_file = '/media/father/d/ai_challenger_caption_validation_20170910//val.json'
+
+train_new_json_file = '/media/father/d/ai_challenger_caption_20170902/train.json'
+val_new_json_file = '/media/father/d/ai_challenger_caption_validation_20170910/val.json'
+
+vocab_file = '/media/father/d/ai_challenger_caption_20170902/vocab.json'
+inference_vocab_file = '/media/father/d/ai_challenger_caption_20170902/inference_vocab.json'
+image_feature_output_dir = '/media/father/c/train_image_feature_att'
+
 
 start_word = "<S>"
 end_word = "</S>"
@@ -54,8 +61,9 @@ def _create_vocab(captions):
         counter.update(c)
     print("Total words:", len(counter))
 
-    word_counts = [x for x in counter.items() if x[1] >= 2]
+    word_counts = [x for x in counter.items() if x[1] >= 5]
     word_counts.sort(key=lambda x: x[1], reverse=True)
+    print word_counts
     print("Words in vocabulary:", len(word_counts))
 
     # with tf.gfile.FastGFile(word_counts_output_file, "w") as f:
@@ -65,8 +73,13 @@ def _create_vocab(captions):
     reverse_vocab = [x[0] for x in word_counts]
     unk_id = len(reverse_vocab)
     vocab_dict = dict([(x, y) for (y, x) in enumerate(reverse_vocab)])
-    # with open(word_counts_output_file, 'w') as f:
-    #     json.dump(vocab_dict, f)
+    reverse_vocab = dict([(x, y) for (x, y) in enumerate(reverse_vocab)])
+    with open(vocab_file, 'w') as f:
+        vocab_dict[unknown_word] = unk_id
+        json.dump(vocab_dict, f)
+    with open(inference_vocab_file, 'w') as f:
+        reverse_vocab[unk_id] = unknown_word
+        json.dump(reverse_vocab, f)
     vocab = Vocabulary(vocab_dict, unk_id)
 
     return vocab
@@ -84,11 +97,13 @@ def _process_captions(captions_file):
         for c in caption:
             captions.append(c)
     print("Finished processing %d captions in %s" % (num_captions, captions_file))
-    # vocab = _create_vocab(captions)
+
     with open('/media/father/d/ai_challenger_caption_20170902/vocab.json', "r") as f:
         decoder = json.load(f)
+    vocab = Vocabulary(decoder, len(decoder)-1)
+    # vocab = _create_vocab(captions)
+
     new_json = []
-    vocab = Vocabulary(decoder, len(decoder))
 
     for line in caption_data:
         captions = []
@@ -97,7 +112,7 @@ def _process_captions(captions_file):
             caption = [vocab.word_to_id(word)for word in caption]
             captions.append(caption)
         new_json.append({"image_id": line["image_id"], "caption": captions})
-    with open(new_json_file, 'w') as f:
+    with open(val_new_json_file, 'w') as f:
         json.dump(new_json, f)
 
 
@@ -128,8 +143,21 @@ def _process_images(image_dir):
 def main():
     _process_captions(val_captions_file)
 
-    # _process_images(image_dir)
+    # _process_images(train_image_dir)
 
 
 main()
+
+# def to1_1():
+#     with open(path1, "r") as f:
+#         lines = json.load(f)
+#         new_json = []
+#         for line in lines:
+#             for caption in line["caption"]:
+#                 new_line = {"image_id": line["image_id"], "caption": caption}
+#                 new_json.append(new_line)
+#
+#     with open(path2, "w") as f:
+#         json.dump(new_json, f)
+
 

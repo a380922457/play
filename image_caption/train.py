@@ -13,13 +13,13 @@ from data_loader import get_loader
 from models.attention_model_v2 import Attention_Model
 from utils import LanguageModelCriterion
 from eval_utils import Evaluator
+import math
 
 checkpoint_path = "./checkpoint_path/"
 model_path = './model_data/'
 save_checkpoint_every = 10000
 crop_size = 224
 log_step = 100
-save_step = 10000
 
 embed_size = 256
 num_layers = 1
@@ -27,8 +27,8 @@ num_layers = 1
 num_epochs = 5
 batch_size = 64
 num_workers = 16
-learning_rate = 0.001
-vocab_size = 12000
+init_learning_rate = 5 * 1e-4
+vocab_size = 7800
 use_cuda = True
 
 
@@ -38,6 +38,7 @@ def add_summary_value(writer, key, value, iteration):
 
 
 def main():
+    torch.cuda.manual_seed(123)
     data_loader = get_loader(batch_size, shuffle=False, num_workers=num_workers, if_train=True)
     tf_summary_writer = tf.summary.FileWriter(checkpoint_path)
 
@@ -74,15 +75,20 @@ def main():
     # Loss and Optimizer
     model.train()
     criterion = LanguageModelCriterion()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     evaluator = Evaluator()
 
     # if vars(opt).get('start_from', None) is not None:
-    #     optimizer.load_state_dict(torch.load(os.path.join(opt.start_from, 'optimizer.pth')))
-
+    # optimizer.load_state_dict(torch.load(os.path.join(checkpoint_path, 'optimizer.pth')))
     # Train the Models
     total_step = len(data_loader)
     for epoch in range(num_epochs):
+        if epoch == 0:
+            learning_rate = init_learning_rate
+        else:
+            learning_rate = init_learning_rate*math.pow(0.8, epoch)
+
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
         for iteration, (images, captions, masks, _) in enumerate(data_loader):
             images = Variable(images, requires_grad=False)
             captions = Variable(captions, requires_grad=False)
@@ -90,6 +96,7 @@ def main():
             if use_cuda:
                 images = images.cuda()
                 captions = captions.cuda()
+
             # Forward, Backward and Optimize
             optimizer.zero_grad()
             outputs = model(captions, images)
@@ -98,7 +105,6 @@ def main():
             train_loss = loss.data[0]
             optimizer.step()
             torch.cuda.synchronize()
-
             if iteration % save_checkpoint_every == 0:
                 val_loss, predictions, lang_stats = evaluator.evaluate(model, criterion)
 
@@ -119,7 +125,7 @@ def main():
                     # if best_val_score is None or current_score > best_val_score:
                     #     best_val_score = current_score
                     #     best_flag = True
-                    torch.save(model.state_dict(), os.path.join(checkpoint_path, 'model.pth'))
+                    torch.save(model.state_dict(), os.path.join(checkpoint_path, 'model%d.pth' % iteration))
                     print("model saved to {}".format(checkpoint_path))
                     torch.save(optimizer.state_dict(), os.path.join(checkpoint_path, 'optimizer.pth'))
 
@@ -144,18 +150,16 @@ def main():
                         with open(os.path.join(checkpoint_path, 'infos_' + '-best.pkl'), 'wb') as f:
                             cPickle.dump(infos, f)
 
-
             # Print log info
             if iteration % log_step == 0:
                 endtime = time()
                 if iteration != 0:
-                    print("total_time", (endtime - starttime))
-                print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f'
-                      % (epoch, num_epochs, iteration, total_step, loss.data[0], np.exp(loss.data[0])))
+                    print('total_time %d, Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f' % (endtime - starttime, epoch, num_epochs, iteration, total_step, loss.data[0], np.exp(loss.data[0])))
                 starttime = time()
 
                 add_summary_value(tf_summary_writer, 'train_loss', train_loss, iteration)
-                # add_summary_value(tf_summary_writer, 'learning_rate', opt.current_lr, iteration)
+                add_summary_value(tf_summary_writer, 'learning_rate', learning_rate
+                                  , iteration)
                 add_summary_value(tf_summary_writer, 'scheduled_sampling_prob', model.ss_prob, iteration)
                 tf_summary_writer.flush()
 

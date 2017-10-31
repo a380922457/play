@@ -27,7 +27,6 @@ class COCO:
         # create index
         print('creating index...')
         imgToAnns = {ann['image_id']: [] for ann in self.dataset['annotations']}
-        print("aaaaaaaaaaaaaa,", len(imgToAnns))
         anns = {ann['id']: [] for ann in self.dataset['annotations']}
 
         for ann in self.dataset['annotations']:
@@ -52,7 +51,6 @@ class COCO:
 
     def getImgIds(self):
         return list(self.imgs.keys())
-
 
     def loadRes(self, resFile):
         res = COCO()
@@ -80,21 +78,15 @@ class COCO:
             w = jieba.cut(ann['caption'].strip().replace('。', ''), cut_all=False)
             p = ' '.join(w)
             ann['caption'] = p
-            # print(ann['image_id'])
             ann['image_id'] = get_image_dict(ann['image_id'])
             annsImgIds.append((ann['image_id']))
-        # print(annsImgIds)
         imgIds = set([img['id'] for img in res.dataset['images']]) & set([ann['image_id'] for ann in anns])
-        # imgIds = [img['id'] for img in res.dataset['images']]
         res.dataset['images'] = [img for img in res.dataset['images'] if img['id'] in imgIds]
-        print("coco_res_image_length", len(res.dataset["images"]))
 
-        print("anns_length", len(anns))
         for id, ann in enumerate(anns):
             ann['id'] = id
         print('DONE (t=%0.2fs)' % ((datetime.datetime.utcnow() - time_t).total_seconds()))
 
         res.dataset['annotations'] = anns
-        print("res.dataset['annotations']", len(res.dataset['annotations']))
         res.createIndex()
         return res

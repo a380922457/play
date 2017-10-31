@@ -106,7 +106,7 @@ class AdaAtt_attention(nn.Module):
 
 
 class AdaAttModel(nn.Module):
-    def __init__(self, vocab_size=12000, input_encoding_size=300, rnn_size=1024,
+    def __init__(self, vocab_size=7800, input_encoding_size=300, rnn_size=1024,
                  num_layers=1, drop_prob_lm=0.5, att_feat_size=2048, att_hid_size=512):
         super(AdaAttModel, self).__init__()
         self.vocab_size = vocab_size

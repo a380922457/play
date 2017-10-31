@@ -5,8 +5,9 @@ import torch.nn.functional as F
 from torch.autograd import *
 import numpy as np
 
+
 class Attention_Model(nn.Module):
-    def __init__(self, vocab_size=12000, input_encoding_size=300, rnn_size=1024, seq_length=20,
+    def __init__(self, vocab_size=7800, input_encoding_size=300, rnn_size=1024, seq_length=20,
                  num_layers=1, drop_prob_lm=0.5, att_feat_size=2048, att_hid_size=512):
         super(Attention_Model, self).__init__()
         self.vocab_size = vocab_size
@@ -175,11 +176,6 @@ class Attention_Model(nn.Module):
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
-    def get_log_prob(self, xt, att_feats, state):
-        output, state = self.core(xt, att_feats, state)
-        logprobs = F.log_softmax(self.logit(self.dropout(output)))
-        return logprobs, state
-
     def core(self, xt, att_feats, state):
         xt = self.embed(xt)
 
@@ -248,11 +244,12 @@ class Attention_Model(nn.Module):
         seq_log_prob = []
         for t in range(self.seq_length + 1):
             if t == 0:  # input <bos>
-                # it = (Variable(torch.from_numpy(np.ones(batch_size)).long())).cuda()
-                it = torch.from_numpy(np.ones(batch_size)).long()
+                it = (Variable(torch.from_numpy(np.ones(batch_size)).long()))
+                # it = torch.from_numpy(np.ones(batch_size)).long()
             elif sample_max:
                 sample_log_prob, it = torch.max(log_prob.data, 1)
                 it = it.view(-1).long()
+                it = Variable(it, requires_grad=False)
             else:
                 if temperature == 1.0:
                     prob_prev = torch.exp(log_prob.data).cpu()  # fetch prev distribution: shape Nx(M+1)
@@ -264,7 +261,8 @@ class Attention_Model(nn.Module):
 
                 sample_log_prob = log_prob.gather(1, Variable(it, requires_grad=False))  # gather the logprobs at sampled positions
                 it = it.view(-1).long()  # and flatten indices for downstream processing
-
+                it = Variable(it, requires_grad=False)
+            it = it.cuda()
             if t >= 1:
                 # stop when all finished
                 # if t == 1:
@@ -277,8 +275,9 @@ class Attention_Model(nn.Module):
                 seq.append(it)  # seq[t] the input of t+2 time step
 
                 seq_log_prob.append(sample_log_prob.view(-1))
-            it = Variable(it, requires_grad=False)
-            log_prob, state = self.get_log_prob(it, att_feats, state)
+
+            output, state = self.core(it, att_feats, state)
+            log_prob = F.log_softmax(self.logit(self.dropout(output)))
 
         return (torch.cat([_.unsqueeze(1) for _ in seq], 1)).data, torch.cat([_.unsqueeze(1) for _ in seq_log_prob], 1)
 
