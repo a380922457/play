@@ -67,4 +67,5 @@ def set_lr(optimizer, lr):
 def clip_gradient(optimizer, grad_clip):
     for group in optimizer.param_groups:
         for param in group['params']:
+            print param.grad.data
             param.grad.data.clamp_(-grad_clip, grad_clip)

@@ -14,17 +14,16 @@ from models.attention_model_v2 import Attention_Model
 from utils import LanguageModelCriterion
 from eval_utils import Evaluator
 import math
+import utils
 
 checkpoint_path = "./checkpoint_path/"
 model_path = './model_data/'
 save_checkpoint_every = 10000
-crop_size = 224
 log_step = 100
 
 embed_size = 256
-num_layers = 1
 
-num_epochs = 5
+num_epochs = 20
 batch_size = 64
 num_workers = 16
 init_learning_rate = 5 * 1e-4
@@ -72,15 +71,15 @@ def main():
     if use_cuda:
         model.cuda()
 
-    # Loss and Optimizer
     model.train()
     criterion = LanguageModelCriterion()
     evaluator = Evaluator()
 
     # if vars(opt).get('start_from', None) is not None:
     # optimizer.load_state_dict(torch.load(os.path.join(checkpoint_path, 'optimizer.pth')))
-    # Train the Models
+
     total_step = len(data_loader)
+    iteration = 0
     for epoch in range(num_epochs):
         if epoch == 0:
             learning_rate = init_learning_rate
@@ -89,7 +88,7 @@ def main():
 
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-        for iteration, (images, captions, masks, _) in enumerate(data_loader):
+        for (images, captions, masks, _) in data_loader:
             images = Variable(images, requires_grad=False)
             captions = Variable(captions, requires_grad=False)
             # torch.cuda.synchronize()
@@ -100,15 +99,14 @@ def main():
             # Forward, Backward and Optimize
             optimizer.zero_grad()
             outputs = model(captions, images)
-            loss = criterion(outputs[:, :-1], captions[:, 1:], masks[:, 1:])
+            loss = criterion(outputs, captions[:, 1:], masks[:, 1:])
             loss.backward()
+            utils.clip_gradient(optimizer, 5.0)
             train_loss = loss.data[0]
             optimizer.step()
             torch.cuda.synchronize()
             if iteration % save_checkpoint_every == 0:
                 val_loss, predictions, lang_stats = evaluator.evaluate(model, criterion)
-
-                # Write validation result into summary
 
                 add_summary_value(tf_summary_writer, 'validation loss', val_loss, iteration)
                 for k, v in lang_stats.items():
@@ -117,7 +115,6 @@ def main():
                 val_result_history[iteration] = {'loss': val_loss, 'lang_stats': lang_stats, 'predictions': predictions}
 
                 # Save model if is improving on validation result
-
                 current_score = lang_stats['CIDEr']
 
                 best_flag = False
@@ -158,8 +155,7 @@ def main():
                 starttime = time()
 
                 add_summary_value(tf_summary_writer, 'train_loss', train_loss, iteration)
-                add_summary_value(tf_summary_writer, 'learning_rate', learning_rate
-                                  , iteration)
+                add_summary_value(tf_summary_writer, 'learning_rate', learning_rate, iteration)
                 add_summary_value(tf_summary_writer, 'scheduled_sampling_prob', model.ss_prob, iteration)
                 tf_summary_writer.flush()
 

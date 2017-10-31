@@ -7,11 +7,10 @@ from torch.nn import Parameter
 
 
 class lstm(nn.Module):
-    def __init__(self, input_encoding_size=300, rnn_size=1024, num_layers=1, drop_prob_lm=0.5):
+    def __init__(self, input_encoding_size=300, rnn_size=512, drop_prob_lm=0.5):
         super(lstm, self).__init__()
         self.input_encoding_size = input_encoding_size
         self.rnn_size = rnn_size
-        self.num_layers = num_layers
         self.drop_prob_lm = drop_prob_lm
 
         self.w_ih = Parameter(torch.Tensor(5 * self.rnn_size, self.input_encoding_size))
@@ -42,9 +41,9 @@ class lstm(nn.Module):
         return hy, cy, sentinel
 
 
-class AdaAtt_attention(nn.Module):
-    def __init__(self, input_encoding_size=300, rnn_size=1024, drop_prob_lm=0.5, att_hid_size=512, att_feat_size=2048):
-        super(AdaAtt_attention, self).__init__()
+class AdaAttention(nn.Module):
+    def __init__(self, input_encoding_size=300, rnn_size=512, drop_prob_lm=0.5, att_hid_size=512, att_feat_size=2048):
+        super(AdaAttention, self).__init__()
         self.input_encoding_size = input_encoding_size
         self.rnn_size = rnn_size
         self.drop_prob_lm = drop_prob_lm
@@ -67,7 +66,7 @@ class AdaAtt_attention(nn.Module):
         self.att2h = nn.Linear(self.rnn_size, self.rnn_size)
 
     def forward(self, h, sentinel, att_feats):
-        batch_size = att_feats.size()[0]
+        batch_size = att_feats.size(0)
         # View into three dimensions
         att_size = att_feats.numel() // batch_size // self.att_feat_size
 
@@ -77,21 +76,17 @@ class AdaAtt_attention(nn.Module):
         # B*196*1024 --> # B*196*512
         att_feats_embd = (self.ctx2att(att_feats.view(-1, self.rnn_size))).view(batch_size, att_size, self.att_hid_size)
 
-        # view neighbor from bach_size * neighbor_num x rnn_size to bach_size x rnn_size * neighbor_num
-        # sentinel = self.sentinel_linear(sentinel)  # B*1024 --> B*300
         sentinel_embd = self.sentinel_embed(sentinel)  # B*1024 --> B*512
 
-        # h_linear = self.ho_linear(h)
         h_embed = self.ho_embed(h)  # B*512
 
         expanded_h = h_embed.squeeze(0).unsqueeze(1)
         expanded_h = expanded_h.expand(batch_size, att_size + 1, self.att_hid_size)
 
         img_all = torch.cat([sentinel.view(-1, 1, self.rnn_size), att_feats], 1)  # B*1*1024 + B*196*1024
-        img_all_embed = torch.cat([sentinel_embd.view(-1, 1, self.att_hid_size), att_feats_embd], 1)
+        img_all_embed = torch.cat([sentinel_embd.view(-1, 1, self.att_hid_size), att_feats_embd], 1)  # B*197*512
 
-        hA = F.tanh(img_all_embed + expanded_h)
-        hA = F.dropout(hA, self.drop_prob_lm, self.training)
+        hA = F.dropout(F.tanh(img_all_embed + expanded_h), self.drop_prob_lm, self.training)
 
         alpha = self.alpha_net(hA.view(-1, self.att_hid_size))
         alpha = F.softmax(alpha.view(-1, att_size + 1))  # B*197
@@ -100,37 +95,32 @@ class AdaAtt_attention(nn.Module):
 
         atten_out = cHat + h
 
-        h = F.tanh(self.att2h(atten_out))
-        h = F.dropout(h, self.drop_prob_lm, self.training)
+        h = F.dropout(F.tanh(self.att2h(atten_out)), self.drop_prob_lm, self.training)
         return h.squeeze(0)
 
 
 class AdaAttModel(nn.Module):
-    def __init__(self, vocab_size=7800, input_encoding_size=300, rnn_size=1024,
-                 num_layers=1, drop_prob_lm=0.5, att_feat_size=2048, att_hid_size=512):
+    def __init__(self, vocab_size=7800, input_encoding_size=300, rnn_size=512, drop_prob_lm=0.5, att_feat_size=2048, att_hid_size=512):
         super(AdaAttModel, self).__init__()
         self.vocab_size = vocab_size
         self.input_encoding_size = input_encoding_size
         self.rnn_size = rnn_size
-        self.num_layers = num_layers
         self.drop_prob_lm = drop_prob_lm
-        self.fc_feat_size = att_feat_size
         self.att_feat_size = att_feat_size
         self.att_hid_size = att_hid_size
 
         self.embed = nn.Sequential(nn.Embedding(self.vocab_size + 1, self.input_encoding_size), nn.ReLU(), nn.Dropout(self.drop_prob_lm))
-        # self.fc_embed = nn.Sequential(nn.Linear(self.fc_feat_size, self.rnn_size), nn.ReLU(), nn.Dropout(self.drop_prob_lm))
         self.att_embed = nn.Sequential(nn.Linear(self.att_feat_size, self.rnn_size), nn.ReLU(), nn.Dropout(self.drop_prob_lm))
-        self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
+        self.logit = nn.Linear(self.rnn_size, self.vocab_size)
         self.ctx2att = nn.Linear(self.rnn_size, self.att_hid_size)
 
-        self.lstm = lstm(input_encoding_size=input_encoding_size, rnn_size=rnn_size, num_layers=num_layers, drop_prob_lm=drop_prob_lm)
-        self.attention = AdaAtt_attention(input_encoding_size=input_encoding_size, rnn_size=rnn_size, drop_prob_lm=drop_prob_lm, att_hid_size=att_hid_size, att_feat_size=2048)
+        self.lstm = lstm()
+        self.attention = AdaAttention()
 
     def init_hidden(self, batch_size):
         weight = next(self.parameters()).data
-        return (Variable(weight.new(self.num_layers, batch_size, self.rnn_size).zero_()),
-                Variable(weight.new(self.num_layers, batch_size, self.rnn_size).zero_()))
+        return (Variable(weight.new(1, batch_size, self.rnn_size).zero_()),
+                Variable(weight.new(1, batch_size, self.rnn_size).zero_()))
 
     def forward(self,  att_feats, seq):
         batch_size = att_feats.size(0)
