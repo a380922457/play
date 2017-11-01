@@ -18,7 +18,7 @@ class Attention_Model(nn.Module):
         self.seq_length = seq_length
         self.att_feat_size = att_feat_size
         self.att_hid_size = att_hid_size
-        self.linear = nn.Linear(self.att_feat_size, self.num_layers * self.rnn_size)  # feature to rnn_size
+        self.linear = nn.Linear(self.att_feat_size, self.rnn_size)  # feature to rnn_size
         self.drop_prob_lm = drop_prob_lm
 
 
@@ -209,10 +209,10 @@ class Attention_Model(nn.Module):
         forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size)
         out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
 
-        in_transform = all_input_sums.narrow(1, 3 * self.rnn_size, 2 * self.rnn_size) + self.a2c(att_res)
-        in_transform = torch.max(in_transform.narrow(1, 0, self.rnn_size),
-                                 in_transform.narrow(1, self.rnn_size, self.rnn_size))
-        next_c = forget_gate * state[1][-1] + in_gate * in_transform
+        cell = all_input_sums.narrow(1, 3 * self.rnn_size, 2 * self.rnn_size) + self.a2c(att_res)
+        cell = torch.max(cell.narrow(1, 0, self.rnn_size),
+                         cell.narrow(1, self.rnn_size, self.rnn_size))
+        next_c = forget_gate * state[1][-1] + in_gate * cell
         next_h = out_gate * F.tanh(next_c)
 
         output = self.dropout(next_h)

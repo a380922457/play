@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import json
-
+from time import time
 decoder_path = '/media/father/d/ai_challenger_caption_20170902/inference_vocab.json'
 
 def if_use_att(caption_model):
@@ -55,7 +55,6 @@ class LanguageModelCriterion(nn.Module):
         mask = to_contiguous(mask).view(-1, 1)
         output = - input.gather(1, target)
         output = torch.sum(output) / torch.sum(mask)
-
         return output
 
 
@@ -67,5 +66,4 @@ def set_lr(optimizer, lr):
 def clip_gradient(optimizer, grad_clip):
     for group in optimizer.param_groups:
         for param in group['params']:
-            print param.grad.data
             param.grad.data.clamp_(-grad_clip, grad_clip)

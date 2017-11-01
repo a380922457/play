@@ -15,6 +15,8 @@ from utils import LanguageModelCriterion
 from eval_utils import Evaluator
 import math
 import utils
+from models.ada_attention_model import AdaAttModel
+from torch.nn import DataParallel
 
 checkpoint_path = "./checkpoint_path/"
 model_path = './model_data/'
@@ -24,7 +26,7 @@ log_step = 100
 embed_size = 256
 
 num_epochs = 20
-batch_size = 64
+batch_size = 80
 num_workers = 16
 init_learning_rate = 5 * 1e-4
 vocab_size = 7800
@@ -67,11 +69,12 @@ def main():
 
     # loader.iterators = infos.get('iterators', loader.iterators)
 
-    model = Attention_Model()
+    model = AdaAttModel()
     if use_cuda:
         model.cuda()
 
-    model.train()
+    # device_ids = range(torch.cuda.device_count())
+    # model = DataParallel(model.train(), device_ids)
     criterion = LanguageModelCriterion()
     evaluator = Evaluator()
 
@@ -91,17 +94,19 @@ def main():
         for (images, captions, masks, _) in data_loader:
             images = Variable(images, requires_grad=False)
             captions = Variable(captions, requires_grad=False)
-            # torch.cuda.synchronize()
+            torch.cuda.synchronize()
+
             if use_cuda:
                 images = images.cuda()
                 captions = captions.cuda()
 
             # Forward, Backward and Optimize
+
             optimizer.zero_grad()
             outputs = model(captions, images)
             loss = criterion(outputs, captions[:, 1:], masks[:, 1:])
             loss.backward()
-            utils.clip_gradient(optimizer, 5.0)
+            # utils.clip_gradient(optimizer, 5.0)
             train_loss = loss.data[0]
             optimizer.step()
             torch.cuda.synchronize()
@@ -122,9 +127,9 @@ def main():
                     # if best_val_score is None or current_score > best_val_score:
                     #     best_val_score = current_score
                     #     best_flag = True
-                    torch.save(model.state_dict(), os.path.join(checkpoint_path, 'model%d.pth' % iteration))
+                    torch.save(model.state_dict(), os.path.join(checkpoint_path, 'Ada_model%d.pth' % iteration))
                     print("model saved to {}".format(checkpoint_path))
-                    torch.save(optimizer.state_dict(), os.path.join(checkpoint_path, 'optimizer.pth'))
+                    torch.save(optimizer.state_dict(), os.path.join(checkpoint_path, 'Ada_optimizer.pth'))
 
                     # Dump miscalleous informations
                     infos['iter'] = iteration

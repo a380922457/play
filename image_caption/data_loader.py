@@ -55,10 +55,11 @@ def collate_fn(data):
     targets = torch.zeros(len(target), max(lengths)).long()
     masks = torch.zeros(len(target), max(lengths)).long()
     for i, cap in enumerate(target):
+        max_length = max(lengths) if max(lengths) < 15 else 15
         end = lengths[i] if lengths[i] < 15 else 15
         targets[i, :end] = cap[:end]
         masks[i, :end] = 1
-    return images, targets, masks, img_id
+    return images, targets[:, :max_length], masks[:, :max_length], img_id
 
 
 def get_loader(batch_size, shuffle, num_workers, if_train):
