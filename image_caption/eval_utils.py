@@ -52,8 +52,8 @@ class Evaluator(object):
             # torch.cuda.synchronize()
             images = images.cuda()
             captions = captions.cuda()
-            outputs = model(captions, images)
-            loss = criterion(outputs[:, :-1], captions[:, 1:], masks[:, 1:])
+            # outputs = model(captions, images)
+            # loss = criterion(outputs[:, :-1], captions[:, 1:], masks[:, 1:])
 
             # forward the model to also get generated samples for each image
             seq, _ = model.sample(images)
@@ -63,4 +63,4 @@ class Evaluator(object):
             lang_stats = self.language_eval(decoded_seq, img_id)
 
         model.train()
-        return loss.data[0], decoded_seq, lang_stats
+        return decoded_seq, lang_stats  # ,loss.data[0],

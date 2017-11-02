@@ -20,15 +20,12 @@ from torch.nn import DataParallel
 
 checkpoint_path = "./checkpoint_path/"
 model_path = './model_data/'
-save_checkpoint_every = 10000
+save_checkpoint_every = 6000
 log_step = 100
-
-embed_size = 256
-
 num_epochs = 20
-batch_size = 80
-num_workers = 16
-init_learning_rate = 5 * 1e-4
+batch_size = 64
+num_workers = 12
+init_learning_rate = 5e-4
 vocab_size = 7800
 use_cuda = True
 
@@ -39,6 +36,9 @@ def add_summary_value(writer, key, value, iteration):
 
 
 def main():
+    import os
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    
     torch.cuda.manual_seed(123)
     data_loader = get_loader(batch_size, shuffle=False, num_workers=num_workers, if_train=True)
     tf_summary_writer = tf.summary.FileWriter(checkpoint_path)
@@ -77,47 +77,42 @@ def main():
     # model = DataParallel(model.train(), device_ids)
     criterion = LanguageModelCriterion()
     evaluator = Evaluator()
-
+    optimizer = torch.optim.Adam(model.parameters(), lr=init_learning_rate)
     # if vars(opt).get('start_from', None) is not None:
-    # optimizer.load_state_dict(torch.load(os.path.join(checkpoint_path, 'optimizer.pth')))
-
+    optimizer.load_state_dict(torch.load(os.path.join(checkpoint_path, 'Ada_optimizer.pth')))
+    model.load_state_dict(torch.load(os.path.join("./checkpoint_path/", 'Ada_model24000.pth')))
     total_step = len(data_loader)
-    iteration = 0
+    iteration = 24000
     for epoch in range(num_epochs):
-        if epoch == 0:
-            learning_rate = init_learning_rate
-        else:
-            learning_rate = init_learning_rate*math.pow(0.8, epoch)
+        learning_rate = init_learning_rate*math.pow(0.8, epoch)
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        for param_group in optimizer.param_groups:
+            param_group["lr"] = learning_rate
 
         for (images, captions, masks, _) in data_loader:
             images = Variable(images, requires_grad=False)
             captions = Variable(captions, requires_grad=False)
             torch.cuda.synchronize()
-
             if use_cuda:
                 images = images.cuda()
                 captions = captions.cuda()
-
             # Forward, Backward and Optimize
-
             optimizer.zero_grad()
             outputs = model(captions, images)
             loss = criterion(outputs, captions[:, 1:], masks[:, 1:])
             loss.backward()
-            # utils.clip_gradient(optimizer, 5.0)
+            utils.clip_gradient(optimizer, 0.1)
             train_loss = loss.data[0]
             optimizer.step()
             torch.cuda.synchronize()
             if iteration % save_checkpoint_every == 0:
-                val_loss, predictions, lang_stats = evaluator.evaluate(model, criterion)
+                predictions, lang_stats = evaluator.evaluate(model, criterion)
 
-                add_summary_value(tf_summary_writer, 'validation loss', val_loss, iteration)
+                # add_summary_value(tf_summary_writer, 'validation loss', val_loss, iteration)
                 for k, v in lang_stats.items():
                     add_summary_value(tf_summary_writer, k, v, iteration)
                 tf_summary_writer.flush()
-                val_result_history[iteration] = {'loss': val_loss, 'lang_stats': lang_stats, 'predictions': predictions}
+                val_result_history[iteration] = { 'lang_stats': lang_stats, 'predictions': predictions}
 
                 # Save model if is improving on validation result
                 current_score = lang_stats['CIDEr']
@@ -155,7 +150,7 @@ def main():
             # Print log info
             if iteration % log_step == 0:
                 endtime = time()
-                if iteration != 0:
+                if iteration != 24000:
                     print('total_time %d, Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f' % (endtime - starttime, epoch, num_epochs, iteration, total_step, loss.data[0], np.exp(loss.data[0])))
                 starttime = time()
 

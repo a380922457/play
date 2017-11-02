@@ -210,8 +210,7 @@ class Attention_Model(nn.Module):
         out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
 
         cell = all_input_sums.narrow(1, 3 * self.rnn_size, 2 * self.rnn_size) + self.a2c(att_res)
-        cell = torch.max(cell.narrow(1, 0, self.rnn_size),
-                         cell.narrow(1, self.rnn_size, self.rnn_size))
+        cell = torch.max(cell.narrow(1, 0, self.rnn_size), cell.narrow(1, self.rnn_size, self.rnn_size))
         next_c = forget_gate * state[1][-1] + in_gate * cell
         next_h = out_gate * F.tanh(next_c)
 

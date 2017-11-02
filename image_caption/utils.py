@@ -4,12 +4,6 @@ import json
 from time import time
 decoder_path = '/media/father/d/ai_challenger_caption_20170902/inference_vocab.json'
 
-def if_use_att(caption_model):
-    # Decide if load attention feature according to caption model
-    if caption_model in ['show_tell', 'all_img', 'fc']:
-        return False
-    return True
-
 
 # Input: seq, N*D numpy array, with element 0 .. vocab_size. 0 is END token.
 def decode_sequence(seq):
@@ -66,4 +60,5 @@ def set_lr(optimizer, lr):
 def clip_gradient(optimizer, grad_clip):
     for group in optimizer.param_groups:
         for param in group['params']:
-            param.grad.data.clamp_(-grad_clip, grad_clip)
+            if param.grad is not None:
+                param.grad.data.clamp_(-grad_clip, grad_clip)

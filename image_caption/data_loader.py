@@ -12,7 +12,7 @@ from time import time
 
 train_image_dir = '/media/father/c/train_image_feature_att'
 val_image_dir = '/media/father/c/val_image_feature_att'
-train_captions_file = '/media/father/d/ai_challenger_caption_20170902/train1_1.json'
+train_captions_file = '/media/father/d/ai_challenger_caption_20170902/train_sorted.json'
 val_captions_file = '/media/father/d/ai_challenger_caption_validation_20170910/val1_5.json'
 
 
@@ -22,7 +22,7 @@ class MyDataset(data.Dataset):
         if if_train:
             self.image_dir = train_image_dir
             with tf.gfile.FastGFile(train_captions_file, "r") as f:
-                self.caption_data = json.load(f)
+                self.caption_data = json.load(f)[:]
         else:
             self.image_dir = val_image_dir
             with tf.gfile.FastGFile(val_captions_file, "r") as f:
@@ -55,8 +55,8 @@ def collate_fn(data):
     targets = torch.zeros(len(target), max(lengths)).long()
     masks = torch.zeros(len(target), max(lengths)).long()
     for i, cap in enumerate(target):
-        max_length = max(lengths) if max(lengths) < 15 else 15
-        end = lengths[i] if lengths[i] < 15 else 15
+        max_length = max(lengths)
+        end = lengths[i]
         targets[i, :end] = cap[:end]
         masks[i, :end] = 1
     return images, targets[:, :max_length], masks[:, :max_length], img_id
