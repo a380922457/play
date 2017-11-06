@@ -37,7 +37,12 @@ class MyDataset(data.Dataset):
             caption = line["caption"][0]
         img_id = line["image_id"]
         target = torch.Tensor(caption)
-        image = np.load(os.path.join(self.image_dir, str(img_id)) + ".npz")['feat']
+        # image1 = np.load(os.path.join(self.image_dir, str(img_id)) + ".npz")['feat']
+        # image2 = np.load(os.path.join(self.image_dir, str(img_id)) + ".npz")['feat']
+        try:
+            image = np.load(os.path.join(self.image_dir, str(img_id)) + ".npz")['feat']
+        except:
+            print(img_id)
         return image, target, img_id
 
     def __len__(self):
@@ -59,7 +64,7 @@ def collate_fn(data):
         end = lengths[i]
         targets[i, :end] = cap[:end]
         masks[i, :end] = 1
-    return images, targets[:, :max_length], masks[:, :max_length], img_id
+    return images, targets, masks, img_id
 
 
 def get_loader(batch_size, shuffle, num_workers, if_train):

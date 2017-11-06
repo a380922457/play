@@ -32,8 +32,8 @@ class Attention_Model(nn.Module):
         self.alpha_net = nn.Linear(self.att_hid_size, 1)
         self.ss_prob = 0.0  # Schedule sampling probability
 
-        self.embed = nn.Embedding(self.vocab_size + 1, self.input_encoding_size)
-        self.logit = nn.Linear(self.rnn_size, self.vocab_size + 1)
+        self.embed = nn.Embedding(self.vocab_size, self.input_encoding_size)
+        self.logit = nn.Linear(self.rnn_size, self.vocab_size)
         self.ctx2att = nn.Linear(self.att_feat_size, self.att_hid_size)
 
         self.init_weights()
@@ -221,13 +221,15 @@ class Attention_Model(nn.Module):
     def forward(self, seq, att_feats):
         state = self.init_hidden(att_feats.size(0))
         outputs = []
+
         for i in range(seq.size(1) - 1):
             it = seq[:, i].clone()
             if i >= 1 and seq[:, i].data.sum() == 0:
                 break
-            output, state = self.core(it, att_feats, state)
-            output = F.log_softmax(self.logit(output))
+            output0, state = self.core(it, att_feats, state)
+            output = F.log_softmax(self.logit(output0))
             outputs.append(output)
+
         return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
 
     def sample(self, att_feats, sample_max=1):

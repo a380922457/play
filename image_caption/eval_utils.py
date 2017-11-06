@@ -48,10 +48,10 @@ class Evaluator(object):
         model.eval()
         for i, (images, captions, masks, img_id) in enumerate(self.loader):
             images = Variable(images, requires_grad=False)
-            captions = Variable(captions, requires_grad=False)
+            # captions = Variable(captions, requires_grad=False)
             # torch.cuda.synchronize()
             images = images.cuda()
-            captions = captions.cuda()
+            # captions = captions.cuda()
             # outputs = model(captions, images)
             # loss = criterion(outputs[:, :-1], captions[:, 1:], masks[:, 1:])
 
@@ -60,7 +60,8 @@ class Evaluator(object):
 
             decoded_seq = utils.decode_sequence(seq)
 
-            lang_stats = self.language_eval(decoded_seq, img_id)
+            # lang_stats = self.language_eval(decoded_seq, img_id)
+            self.language_eval(decoded_seq, img_id)
 
         model.train()
-        return decoded_seq, lang_stats  # ,loss.data[0],
+        return decoded_seq #, lang_stats  # ,loss.data[0],
