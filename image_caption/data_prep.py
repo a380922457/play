@@ -13,11 +13,14 @@ import misc.resnet as resnet
 import torch
 from torch.autograd import Variable
 import sys
+from torchvision import transforms as trn
+
 reload(sys)
-sys.setdefaultencoding( "utf-8" )
+sys.setdefaultencoding("utf-8")
 
 train_image_dir = '/media/father/d/ai_challenger_caption_20170902/caption_train_images_20170902'
 val_image_dir = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_images_20170910'
+test_image_dir = '/media/father/d/ai_challenger_caption_test1_20170923/caption_test1_images_20170923'
 
 train_captions_file = '/media/father/d/ai_challenger_caption_20170902/caption_train_annotations_20170902.json'
 val_captions_file = '/media/father/d/ai_challenger_caption_validation_20170910/caption_validation_annotations_20170910.json'
@@ -27,8 +30,11 @@ val_new_json_file = '/media/father/d/ai_challenger_caption_validation_20170910/v
 
 vocab_file = '/media/father/d/ai_challenger_caption_20170902/vocab.json'
 inference_vocab_file = '/media/father/d/ai_challenger_caption_20170902/inference_vocab.json'
-image_feature_output_dir = '/media/father/c/train_image_feature_att'
 
+train_att_output_dir = '/media/father/d/ai_challenger_caption_20170902/train_image_feature_att'
+# val_att_output_dir = '/media/father/c/val_image_feature_att'
+val_att_output_dir = '/media/father/d/ai_challenger_caption_validation_20170910/val_image_feature_att'
+test_att_output_dir = '/media/father/d/ai_challenger_caption_test1_20170923/test_image_feature_att'
 
 start_word = "<S>"
 end_word = "</S>"
@@ -116,7 +122,12 @@ def _process_captions(captions_file):
         json.dump(new_json, f)
 
 
-def _process_images(image_dir):
+preprocess = trn.Compose([
+        trn.Normalize([0.475, 0.447, 0.416], [0.257, 0.250, 0.248])
+])
+
+
+def _process_images(image_dir, att_output_dir):
     images = os.listdir(image_dir)
 
     net = resnet.resnet152(pretrained=True)
@@ -125,25 +136,29 @@ def _process_images(image_dir):
     my_resnet.eval()
 
     counter = 0
-    for image in images:
-        try:
-            img = Image.open(os.path.join(image_dir, image)).resize((224, 224))
-            img = np.array(img).astype("float32")/255.0
-            img = torch.from_numpy(img.transpose(2, 0, 1)).cuda()
-            img = Variable(img, volatile=True)
-            tmp_att = my_resnet(img)
-            np.savez_compressed(os.path.join(output_dir, image), feat=tmp_att.data.cpu().float().numpy())
-        except:
-            print(image)
+    for i, image in enumerate(images):
+        # try:
+        if i < 29000: continue
+        img = Image.open(os.path.join(image_dir, image))
+        # img = img.resize((224, 224))
+        img = np.array(img).astype("float32")/255.0
+        img = torch.from_numpy(img.transpose(2, 0, 1)).cuda()
+        img = Variable(preprocess(img), volatile=True)
+        # img = Variable(img, volatile=True)
+        tmp_att = my_resnet(img)
+        np.savez_compressed(os.path.join(att_output_dir, image), feat=tmp_att.data.cpu().float().numpy())
+
+        # except:
+        #     print(image)
         counter += 1
-        if not counter % 1000:
+        if not counter % 100:
             print("%s : Processed %d " % (datetime.now(), counter))
 
 
 def main():
-    _process_captions(val_captions_file)
+    # _process_captions(val_image_dir)
 
-    # _process_images(train_image_dir)
+    _process_images(val_image_dir, val_att_output_dir)
 
 
 main()

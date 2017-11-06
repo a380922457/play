@@ -24,26 +24,25 @@ class lstm(nn.Module):
         self.drop_prob_lm = drop_prob_lm
         self.att_hid_size = att_hid_size
 
-        self.w_ih = Parameter(torch.Tensor(5 * self.rnn_size, self.input_encoding_size))
-        self.w_hh = Parameter(torch.Tensor(5 * self.rnn_size, self.rnn_size))
-        self.v2h = nn.Linear(self.rnn_size, 5 * self.rnn_size)
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        stdv = 1.0 / math.sqrt(self.rnn_size)
-        for weight in self.parameters():
-            weight.data.uniform_(-stdv, stdv)
+        self.word2h = nn.Linear(self.input_encoding_size, 6 * self.rnn_size)
+        self.h2h = nn.Linear(self.rnn_size, 6 * self.rnn_size)
+        self.image2h = nn.Linear(self.rnn_size, 6 * self.rnn_size)
 
     def forward(self, xt, state, att_features):
         fc_feature = att_features.mean(1).squeeze()
         hx, cx = state
-        gates = (F.linear(xt, self.w_ih) + F.linear(hx, self.w_hh)).squeeze(0) + self.v2h(fc_feature)
-        in_gate, forget_gate, cell_gate, out_gate, s_gate = gates.chunk(5, 1)
-        in_gate = F.sigmoid(in_gate)
-        forget_gate = F.sigmoid(forget_gate)
-        out_gate = F.sigmoid(out_gate)
-        s_gate = F.sigmoid(s_gate)
-        cell = F.tanh(cell_gate)
+        gates = (self.word2h(xt) + self.h2h(hx) + self.image2h(fc_feature)).squeeze(0)
+
+        sigmoid_chunk = gates.narrow(1, 0, 4 * self.rnn_size)
+        sigmoid_chunk = F.sigmoid(sigmoid_chunk)
+        # decode the gates
+        in_gate = sigmoid_chunk.narrow(1, 0, self.rnn_size)
+        forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size)
+        out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
+        s_gate = sigmoid_chunk.narrow(1, self.rnn_size * 3, self.rnn_size)
+        cell = gates.narrow(1, 4 * self.rnn_size, 2 * self.rnn_size)
+        cell = torch.max(cell.narrow(1, 0, self.rnn_size), cell.narrow(1, self.rnn_size, self.rnn_size))
+        cell = F.tanh(cell)
 
         cy = F.tanh((forget_gate * cx) + (in_gate * cell))
         sentinel = s_gate * cy
@@ -125,9 +124,8 @@ class AdaAttModel(nn.Module):
         self.ctx2att = nn.Linear(self.rnn_size, self.att_hid_size)
         self.att_embed = nn.Sequential(nn.Linear(self.att_feat_size, self.rnn_size), nn.ReLU(), nn.Dropout(self.drop_prob_lm))
 
-        self.parallels = Parallels()
-        # self.lstm = lstm()
-        # self.attention = AdaAttention()
+        self.lstm = lstm()
+        self.attention = AdaAttention()
 
     def init_hidden(self, batch_size):
         weight = next(self.parameters()).data
@@ -190,18 +188,8 @@ class AdaAttModel(nn.Module):
     def core(self, xt, att_feats, state):
         att_feats = self.att_embed(att_feats.view(att_feats.size(0), -1, self.att_feat_size))
         xt = self.embed(xt)
-        output, state = self.parallels(xt, state, att_feats)
-        return output, state
-
-
-class Parallels(nn.Module):
-    def __init__(self):
-        super(Parallels, self).__init__()
-        self.lstm = lstm()
-        self.attention = AdaAttention()
-
-    def forward(self, xt, state, att_feats):
         hy, cy, sentinel = self.lstm(xt, state, att_feats)
         state = (hy, cy)
         output = self.attention(hy, sentinel, att_feats)
         return output, state
+
