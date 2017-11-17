@@ -2,13 +2,9 @@ import torch
 import torch.nn as nn
 import json
 from time import time
-decoder_path = '/media/father/d/ai_challenger_caption_20170902/inference_vocab.json'
+import torch.nn.functional as F
 
-def if_use_att(caption_model):
-    # Decide if load attention feature according to caption model
-    if caption_model in ['show_tell', 'all_img', 'fc']:
-        return False
-    return True
+decoder_path = '/media/father/d/ai_challenger_caption_20170902/inference_vocab.json'
 
 
 # Input: seq, N*D numpy array, with element 0 .. vocab_size. 0 is END token.
@@ -47,10 +43,10 @@ class LanguageModelCriterion(nn.Module):
 
     def forward(self, input, target, mask):
         # truncate to the same size
-
         target = target[:, :input.size(1)]
         mask = mask[:, :input.size(1)]
         input = to_contiguous(input).view(-1, input.size(2))
+
         target = to_contiguous(target).view(-1, 1)
         mask = to_contiguous(mask).view(-1, 1)
         output = - input.gather(1, target)

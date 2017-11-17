@@ -221,13 +221,15 @@ class Attention_Model(nn.Module):
     def forward(self, seq, att_feats):
         state = self.init_hidden(att_feats.size(0))
         outputs = []
+
         for i in range(seq.size(1) - 1):
             it = seq[:, i].clone()
             if i >= 1 and seq[:, i].data.sum() == 0:
                 break
-            output, state = self.core(it, att_feats, state)
-            output = F.log_softmax(self.logit(output))
+            output0, state = self.core(it, att_feats, state)
+            output = F.log_softmax(self.logit(output0))
             outputs.append(output)
+
         return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
 
     def sample(self, att_feats, sample_max=1):

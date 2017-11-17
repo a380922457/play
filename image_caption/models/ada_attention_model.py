@@ -42,7 +42,6 @@ class lstm(nn.Module):
         s_gate = sigmoid_chunk.narrow(1, self.rnn_size * 3, self.rnn_size)
         cell = gates.narrow(1, 4 * self.rnn_size, 2 * self.rnn_size)
         cell = torch.max(cell.narrow(1, 0, self.rnn_size), cell.narrow(1, self.rnn_size, self.rnn_size))
-        cell = F.tanh(cell)
 
         cy = F.tanh((forget_gate * cx) + (in_gate * cell))
         sentinel = s_gate * cy

@@ -18,6 +18,7 @@ import utils
 from models.ada_attention_model import AdaAttModel
 from torch.nn import DataParallel
 
+
 checkpoint_path = "./checkpoint_path/"
 model_path = './model_data/'
 save_checkpoint_every = 6000
@@ -37,8 +38,9 @@ def add_summary_value(writer, key, value, iteration):
 
 def main():
     import os
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
+    torch.manual_seed(123)
     torch.cuda.manual_seed(123)
     data_loader = get_loader(batch_size, shuffle=False, num_workers=num_workers, if_train=True)
     tf_summary_writer = tf.summary.FileWriter(checkpoint_path)
@@ -77,16 +79,15 @@ def main():
     # model = DataParallel(model.train(), device_ids)
     criterion = LanguageModelCriterion()
     evaluator = Evaluator()
-
-    # if vars(opt).get('start_from', None) is not None:
-    # optimizer.load_state_dict(torch.load(os.path.join(checkpoint_path, 'optimizer.pth')))
     optimizer = torch.optim.Adam(model.parameters(), lr=init_learning_rate)
+    # if vars(opt).get('start_from', None) is not None:
+    # optimizer.load_state_dict(torch.load(os.path.join(checkpoint_path, 'Ada_optimizer.pth')))
+    # model.load_state_dict(torch.load(os.path.join("./checkpoint_path/", 'Ada_model24000.pth')))
     total_step = len(data_loader)
     iteration = 0
     for epoch in range(num_epochs):
         learning_rate = init_learning_rate*math.pow(0.8, epoch)
 
-        # optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
         for param_group in optimizer.param_groups:
             param_group["lr"] = learning_rate
 
@@ -94,29 +95,28 @@ def main():
             images = Variable(images, requires_grad=False)
             captions = Variable(captions, requires_grad=False)
             torch.cuda.synchronize()
-
             if use_cuda:
                 images = images.cuda()
                 captions = captions.cuda()
-
             # Forward, Backward and Optimize
-
             optimizer.zero_grad()
             outputs = model(captions, images)
             loss = criterion(outputs, captions[:, 1:], masks[:, 1:])
+
             loss.backward()
             utils.clip_gradient(optimizer, 0.1)
+            # print(loss.data[0])
             train_loss = loss.data[0]
             optimizer.step()
             torch.cuda.synchronize()
             # if iteration % save_checkpoint_every == 0:
-            #     val_loss, predictions, lang_stats = evaluator.evaluate(model, criterion)
+            #     predictions, lang_stats = evaluator.evaluate(model, criterion)
             #
-            #     add_summary_value(tf_summary_writer, 'validation loss', val_loss, iteration)
+            #     # add_summary_value(tf_summary_writer, 'validation loss', val_loss, iteration)
             #     for k, v in lang_stats.items():
             #         add_summary_value(tf_summary_writer, k, v, iteration)
             #     tf_summary_writer.flush()
-            #     val_result_history[iteration] = {'loss': val_loss, 'lang_stats': lang_stats, 'predictions': predictions}
+            #     val_result_history[iteration] = { 'lang_stats': lang_stats, 'predictions': predictions}
             #
             #     # Save model if is improving on validation result
             #     current_score = lang_stats['CIDEr']

@@ -1,0 +1,74 @@
+# encoding: utf-8
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from torch.autograd import Variable
+from models import ada_attention_model
+import sys
+import utils
+import torch
+import torch.utils.data as data
+import os
+import json
+import numpy as np
+reload(sys)
+sys.setdefaultencoding("utf-8")
+
+
+model = ada_attention_model.AdaAttModel()
+model.cuda()
+test_image_att = '/media/father/d/ai_challenger_test_20170923/test_image_feature_att'
+json_predictions_file = './eval_results/result.json'
+lines = []
+
+
+def language_eval(seq, image_id):
+    data = zip(seq, image_id)
+    for seq, image_id in data:
+        image_id = os.path.splitext(os.path.splitext(image_id)[0])[0]
+        line = {"caption": seq, "image_id": image_id}
+        lines.append(line)
+
+
+class MyDataset(data.Dataset):
+    def __init__(self):
+        self.data = os.listdir(test_image_att)
+
+    def __getitem__(self, index):
+        image_id = str(self.data[index])
+        try:
+            image = np.load(os.path.join(test_image_att, str(self.data[index])))['feat']
+        except:
+            print(image_id)
+        return image, image_id
+
+    def __len__(self):
+        return len(self.data)
+
+
+def evaluate(model):
+    model.eval()
+    counter = 0
+    dataset = data.DataLoader(dataset=MyDataset(), batch_size=128, shuffle=False, num_workers=16)
+    for image, image_id in dataset:
+        image = Variable(image, requires_grad=False)
+        try:
+            image = image.cuda()
+            seq, _ = model.sample(image)
+
+            decoded_seq = utils.decode_sequence(seq)
+
+            language_eval(decoded_seq, image_id)
+        except:
+            print(image_id)
+        counter += 1
+        if counter%10==0:print(counter)
+    with open(json_predictions_file, "w") as f:
+        json.dump(lines, f)
+
+
+model.load_state_dict(torch.load(os.path.join("./checkpoint_path/", 'Ada_model132000.pth')))
+
+evaluate(model)
+
+
