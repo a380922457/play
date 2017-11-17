@@ -10,8 +10,10 @@ import tensorflow as tf
 import numpy as np
 from time import time
 
-train_image_dir = '/media/father/c/train_image_feature_att'
-val_image_dir = '/media/father/c/val_image_feature_att'
+train_image_dir_7 = '/media/father/D74A848338D93A9B/train_image_feature_att'
+train_image_dir_14 = '/media/father/73DE59842D44F06B/train_image_feature_att'
+
+val_image_dir = '/media/father/d/ai_challenger_caption_validation_20170910/val_image_feature_att'
 train_captions_file = '/media/father/d/ai_challenger_caption_20170902/train_sorted.json'
 val_captions_file = '/media/father/d/ai_challenger_caption_validation_20170910/val1_5.json'
 
@@ -20,7 +22,7 @@ class MyDataset(data.Dataset):
     def __init__(self, if_train):
         self.if_train = if_train
         if if_train:
-            self.image_dir = train_image_dir
+            self.image_dir = train_image_dir_7
             with tf.gfile.FastGFile(train_captions_file, "r") as f:
                 self.caption_data = json.load(f)[:]
         else:
@@ -37,12 +39,10 @@ class MyDataset(data.Dataset):
             caption = line["caption"][0]
         img_id = line["image_id"]
         target = torch.Tensor(caption)
-        # image1 = np.load(os.path.join(self.image_dir, str(img_id)) + ".npz")['feat']
-        # image2 = np.load(os.path.join(self.image_dir, str(img_id)) + ".npz")['feat']
-        try:
-            image = np.load(os.path.join(self.image_dir, str(img_id)) + ".npz")['feat']
-        except:
-            print(img_id)
+        # try:
+        image = np.load(os.path.join(self.image_dir, str(img_id)) + ".npz")['feat']
+        # except:
+        #     image = np.load(os.path.join(train_image_dir_14, str(img_id)) + ".npz")['feat']
         return image, target, img_id
 
     def __len__(self):

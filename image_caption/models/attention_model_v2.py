@@ -4,11 +4,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import *
 import numpy as np
-
+from time import time
 
 class Attention_Model(nn.Module):
-    def __init__(self, vocab_size=7800, input_encoding_size=300, rnn_size=1024, seq_length=20,
-                 num_layers=1, drop_prob_lm=0.5, att_feat_size=2048, att_hid_size=512):
+    def __init__(self, vocab_size=7800, input_encoding_size=512, rnn_size=800, seq_length=25,
+                 num_layers=2, drop_prob_lm=0.5, att_feat_size=2048, att_hid_size=512):
         super(Attention_Model, self).__init__()
         self.vocab_size = vocab_size
         self.input_encoding_size = input_encoding_size
@@ -19,13 +19,14 @@ class Attention_Model(nn.Module):
         self.att_feat_size = att_feat_size
         self.att_hid_size = att_hid_size
         self.linear = nn.Linear(self.att_feat_size, self.rnn_size)  # feature to rnn_size
-        self.drop_prob_lm = drop_prob_lm
-
 
         # Build a LSTM
         self.a2c = nn.Linear(self.att_feat_size, 2 * self.rnn_size)
         self.i2h = nn.Linear(self.input_encoding_size, 5 * self.rnn_size)
-        self.h2h = nn.Linear(self.rnn_size, 5 * self.rnn_size)
+
+        self.layer_i2h = nn.Linear(self.rnn_size, 5 * self.rnn_size)
+
+        self.h2h = nn.ModuleList([nn.Linear(self.rnn_size, 5 * self.rnn_size) for _ in range(self.num_layers)])
         self.dropout = nn.Dropout(self.drop_prob_lm)
 
         self.h2att = nn.Linear(self.rnn_size, self.att_hid_size)
@@ -178,7 +179,6 @@ class Attention_Model(nn.Module):
 
     def core(self, xt, att_feats, state):
         xt = self.embed(xt)
-
         # 投影图像向量，减少计算量
         p_att_feats = self.ctx2att(att_feats.view(-1, self.att_feat_size))
         att_size = att_feats.numel() // att_feats.size(0) // self.att_feat_size
@@ -199,31 +199,67 @@ class Attention_Model(nn.Module):
 
         output, state = self.lstm(xt, state, att_res)
         output = output.squeeze(0)
+
         return output, state
 
     def lstm(self, xt, state, att_res):
         # LSTM calculation
-        all_input_sums = self.i2h(xt) + self.h2h(state[0][-1])
-        sigmoid_chunk = F.sigmoid(all_input_sums.narrow(1, 0, 3 * self.rnn_size))
-        in_gate = sigmoid_chunk.narrow(1, 0, self.rnn_size)
-        forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size)
-        out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
+        hs = []
+        cs = []
 
-        cell = all_input_sums.narrow(1, 3 * self.rnn_size, 2 * self.rnn_size) + self.a2c(att_res)
-        cell = torch.max(cell.narrow(1, 0, self.rnn_size), cell.narrow(1, self.rnn_size, self.rnn_size))
-        next_c = forget_gate * state[1][-1] + in_gate * cell
-        next_h = out_gate * F.tanh(next_c)
+        for layer in range(self.num_layers):
+            prev_h = state[0][layer]
+            prev_c = state[1][layer]
 
-        output = self.dropout(next_h)
-        state = (next_h.unsqueeze(0), next_c.unsqueeze(0))
+            if layer == 0:
+                x = xt
+                all_input_sums = self.i2h(x) + self.h2h[layer](prev_h)
+                cell = all_input_sums.narrow(1, 3 * self.rnn_size, 2 * self.rnn_size) + self.a2c(att_res)
+
+            else:
+                x = hs[-1]
+                # x = F.dropout(x, self.drop_prob_lm, self.training)
+                all_input_sums = self.layer_i2h(x) + self.h2h[layer](prev_h)
+                cell = all_input_sums.narrow(1, 3 * self.rnn_size, 2 * self.rnn_size)
+
+            sigmoid_chunk = F.sigmoid(all_input_sums.narrow(1, 0, 3 * self.rnn_size))
+            in_gate = sigmoid_chunk.narrow(1, 0, self.rnn_size)
+            forget_gate = sigmoid_chunk.narrow(1, self.rnn_size, self.rnn_size)
+            out_gate = sigmoid_chunk.narrow(1, self.rnn_size * 2, self.rnn_size)
+
+            cell = torch.max(cell.narrow(1, 0, self.rnn_size), cell.narrow(1, self.rnn_size, self.rnn_size))
+            next_c = forget_gate * prev_c + in_gate * cell
+            next_h = out_gate * F.tanh(next_c)
+
+            cs.append(next_c)
+            hs.append(next_h)
+
+        top_h = hs[-1]
+        output = self.dropout(top_h)
+        state = (torch.cat([_.unsqueeze(0) for _ in hs]), torch.cat([_.unsqueeze(0) for _ in cs]))
         return output, state
 
     def forward(self, seq, att_feats):
-        state = self.init_hidden(att_feats.size(0))
+        batch_size = att_feats.size(0)
+        state = self.init_hidden(batch_size)
         outputs = []
 
         for i in range(seq.size(1) - 1):
-            it = seq[:, i].clone()
+            if self.training and i >= 1 and self.ss_prob > 0.0:
+                sample_prob = (torch.DoubleTensor(batch_size).uniform_(0, 1)).cuda()
+                sample_mask = sample_prob < self.ss_prob
+
+                if sample_mask.sum() == 0:
+                    it = seq[:, i].clone()
+                else:
+                    sample_ind = sample_mask.nonzero().view(-1)
+                    it = seq[:, i].data.clone()
+                    prob_prev = torch.exp(outputs[-1].data)  # fetch prev distribution: shape Nx(M+1)
+                    it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
+                    it = Variable(it, requires_grad=False)
+
+            else:
+                it = seq[:, i].clone()
             if i >= 1 and seq[:, i].data.sum() == 0:
                 break
             output0, state = self.core(it, att_feats, state)

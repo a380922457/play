@@ -7,7 +7,7 @@ class myResnet(nn.Module):
         super(myResnet, self).__init__()
         self.resnet = resnet
 
-    def forward(self, img, att_size=14):
+    def forward(self, img, att_size=7):
         x = img.unsqueeze(0)
 
         x = self.resnet.conv1(x)

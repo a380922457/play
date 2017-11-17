@@ -27,6 +27,22 @@ class Attention_Model(nn.Module):
         self.rnn = nn.LSTM(input_encoding_size*2, rnn_size, num_layers)
         self.init_weights()
 
+    def gru(self, xt, state, att_res):
+        # LSTM calculation
+        prev_h = state.squeeze(0)
+        all_input_sums = F.sigmoid(self.i2h(xt) + self.h2h(prev_h))
+        r_gate = all_input_sums.narrow(1, 0, self.rnn_size)
+        z_gate = all_input_sums.narrow(1, self.rnn_size, self.rnn_size)
+
+        cell = self.i2h(xt) + self.h2h(prev_h * r_gate) + self.a2c(att_res)
+        h_hat = torch.max(cell.narrow(1, 0, self.rnn_size), cell.narrow(1, self.rnn_size, self.rnn_size))
+        next_h = (1-z_gate)*prev_h + z_gate * h_hat
+
+        output = self.dropout(next_h)
+        state = next_h
+        return output, state
+
+
     def init_weights(self):
         initrange = 0.1
         self.embed.weight.data.uniform_(-initrange, initrange)
