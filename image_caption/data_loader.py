@@ -13,7 +13,7 @@ from time import time
 train_image_dir_7 = '/media/father/D74A848338D93A9B/train_image_feature_att'
 train_image_dir_14 = '/media/father/73DE59842D44F06B/train_image_feature_att'
 
-val_image_dir = '/media/father/d/ai_challenger_caption_validation_20170910/val_image_feature_att'
+val_image_dir = '/media/father/D74A848338D93A9B/val_image_feature_att'
 train_captions_file = '/media/father/d/ai_challenger_caption_20170902/train_sorted.json'
 val_captions_file = '/media/father/d/ai_challenger_caption_validation_20170910/val1_5.json'
 

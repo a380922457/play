@@ -31,7 +31,7 @@ val_new_json_file = '/media/father/d/ai_challenger_caption_validation_20170910/v
 vocab_file = '/media/father/d/ai_challenger_caption_20170902/vocab.json'
 inference_vocab_file = '/media/father/d/ai_challenger_caption_20170902/inference_vocab.json'
 train_att_output_dir = '/media/father/D74A848338D93A9B/train_image_feature_att'
-val_att_output_dir = '/media/father/d/ai_challenger_caption_validation_20170910/val_image_feature_att'
+val_att_output_dir = '/media/father/D74A848338D93A9B/val_image_feature_att'
 test_att_output_dir = '/media/father/d/ai_challenger_test_20170923/test_image_feature_att'
 
 start_word = "<S>"
@@ -124,7 +124,7 @@ def _process_captions(captions_file):
 #         trn.Normalize([0.475, 0.447, 0.416], [0.257, 0.250, 0.248])
 # ])
 
-preprocess = trn.Compose([trn.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])])
+preprocess = trn.Compose([trn.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
 
 def _process_images(image_dir, att_output_dir):
@@ -137,18 +137,15 @@ def _process_images(image_dir, att_output_dir):
 
     counter = 0
     for i, image in enumerate(images):
-        if i < 120000: continue
         try:
-            feature = np.load(os.path.join(att_output_dir, image) + ".npz")['feat']
-            if np.shape(feature)[0] != 7:
-                img = Image.open(os.path.join(image_dir, image))
-                # img = img.resize((224, 224))
-                img = np.array(img).astype("float32")/255.0
-                img = torch.from_numpy(img.transpose(2, 0, 1)).cuda()
-                img = Variable(preprocess(img), volatile=True)
-                # img = Variable(img, volatile=True)
-                tmp_att = my_resnet(img)
-                np.savez_compressed(os.path.join(att_output_dir, image), feat=tmp_att.data.cpu().float().numpy())
+            img = Image.open(os.path.join(image_dir, image))
+            # img = img.resize((224, 224))
+            img = np.array(img).astype("float32")/255.0
+            img = torch.from_numpy(img.transpose(2, 0, 1)).cuda()
+            img = Variable(preprocess(img), volatile=True)
+            # img = Variable(img, volatile=True)
+            tmp_att = my_resnet(img)
+            np.savez_compressed(os.path.join(att_output_dir, image), feat=tmp_att.data.cpu().float().numpy())
         # print(os.path.join(att_output_dir, image))
         except:
             print(image)
@@ -162,7 +159,7 @@ def main():
 
     # _process_captions(val_image_dir)
 
-    _process_images(train_image_dir, train_att_output_dir)
+    _process_images(val_image_dir, val_att_output_dir)
 
 
 main()

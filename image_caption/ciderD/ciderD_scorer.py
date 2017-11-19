@@ -1,12 +1,14 @@
-import copy
 from collections import defaultdict
 import numpy as np
+import jieba
 import math
+import pickle
 
-def precook(s, n=4, out=False):
-    words = s.split()
-    counts = defaultdict(int)
-    for k in xrange(1,n+1):
+
+def precook(s, n=4):
+    words = list(jieba.cut(s)) if type(s) is not list else s
+    counts = defaultdict(float)
+    for k in xrange(1, n+1):
         for i in xrange(len(words)-k+1):
             ngram = tuple(words[i:i+k])
             counts[ngram] += 1
@@ -14,64 +16,40 @@ def precook(s, n=4, out=False):
 
 
 def cook_refs(refs, n=4):
+    refs = ",".join(refs[0])
+    refs = refs.split(",")
     return [precook(ref, n) for ref in refs]
 
 
 def cook_test(test, n=4):
-    return precook(test, n, True)
+    test = test.split()
+    return precook(test, n)
 
 
 class CiderScorer(object):
-
-    def copy(self):
-        ''' copy the refs.'''
-        new = CiderScorer(n=self.n)
-        new.ctest = copy.copy(self.ctest)
-        new.crefs = copy.copy(self.crefs)
-        return new
-
-    def __init__(self, test=None, refs=None, n=4, sigma=6.0):
-        ''' singular instance '''
+    def __init__(self, n=4, sigma=6.0):
         self.n = n
         self.sigma = sigma
         self.crefs = []
         self.ctest = []
-        self.document_frequency = defaultdict(float)
-        self.cook_append(test, refs)
         self.ref_len = None
 
-    def cook_append(self, test, refs):
-        if refs is not None:
-            self.crefs.append(cook_refs(refs))
-            if test is not None:
-                self.ctest.append(cook_test(test))
-            else:
-                self.ctest.append(None)
+        pkl_file = pickle.load(open('/media/father/d/ai_challenger_caption_validation_20170910/cider.p', 'r'))
+        self.ref_len = len(pkl_file)
+        self.document_frequency = pkl_file
+
+    def clear(self):
+        self.crefs = []
+        self.ctest = []
 
     def size(self):
         assert len(self.crefs) == len(self.ctest), "refs/test mismatch! %d<>%d" % (len(self.crefs), len(self.ctest))
         return len(self.crefs)
 
     def __iadd__(self, other):
-        if type(other) is tuple:
-            self.cook_append(other[0], other[1])
-        else:
-            self.ctest.extend(other.ctest)
-            self.crefs.extend(other.crefs)
-
+        self.ctest.append(cook_test(other[0]))
+        self.crefs.append(cook_refs(other[1]))
         return self
-    def compute_doc_freq(self):
-        '''
-        Compute term frequency for reference data.
-        This will be used to compute idf (inverse document frequency later)
-        The term frequency is stored in the object
-        :return: None
-        '''
-        for refs in self.crefs:
-            # refs, k ref captions of one image
-            for ngram in set([ngram for ref in refs for (ngram,count) in ref.iteritems()]):
-                self.document_frequency[ngram] += 1
-            # maxcounts[ngram] = max(maxcounts.get(ngram,0), count)
 
     def compute_cider(self):
         def counts2vec(cnts):
@@ -128,9 +106,6 @@ class CiderScorer(object):
                 val[n] *= np.e**(-(delta**2)/(2*self.sigma**2))
             return val
 
-        # compute log reference length
-        self.ref_len = np.log(float(len(self.crefs)))
-
         scores = []
         for test, refs in zip(self.ctest, self.crefs):
             # compute vector for test captions
@@ -145,18 +120,11 @@ class CiderScorer(object):
             # divide by number of references
             score_avg /= len(refs)
             # multiply score by 10
-            score_avg *= 10.0
+            score_avg *= 10
             # append score of an image to the score list
             scores.append(score_avg)
         return scores
 
-    def compute_score(self, option=None, verbose=0):
-        # compute idf
-        self.compute_doc_freq()
-        # assert to check document frequency
-        assert(len(self.ctest) >= max(self.document_frequency.values()))
-        # compute cider score
+    def compute_score(self):
         score = self.compute_cider()
-        # debug
-        # print score
         return np.mean(np.array(score)), np.array(score)

@@ -25,7 +25,7 @@ num_workers = 8
 init_learning_rate = 4e-4
 vocab_size = 7800
 use_cuda = True
-eval_step = 1000
+eval_step = 200
 
 
 def add_summary_value(writer, key, value, iteration):
@@ -48,14 +48,15 @@ def main():
     criterion = LanguageModelCriterion()
     evaluator = Evaluator()
     optimizer = torch.optim.Adam(model.parameters(), lr=init_learning_rate)
-    # optimizer.load_state_dict(torch.load(os.path.join(checkpoint_path, 'optimizer160000.pth')))
-    # model.load_state_dict(torch.load(os.path.join(checkpoint_path, 'model160000.pth')))
-    model.ss_prob = 0.0
+    optimizer.load_state_dict(torch.load(os.path.join(checkpoint_path, 'optimizer70000.pth')))
+    model.load_state_dict(torch.load(os.path.join(checkpoint_path, 'model70000.pth')))
+    model.ss_prob = 0.05
     total_step = len(data_loader)
-    iteration = 0
+    iteration = 70001
 
     total_loss = 0
     for epoch in range(num_epochs):
+        epoch += 8
         learning_rate = init_learning_rate*math.pow(0.8, epoch/3)
         if epoch % 5 == 0 and epoch != 0:
             model.ss_prob += 0.05
@@ -91,7 +92,7 @@ def main():
             if iteration % log_step == 0:
                 add_summary_value(tf_summary_writer, 'train_loss', total_loss/log_step, iteration)
                 endtime = time()
-                if iteration != 0:
+                if iteration != 70100:
                     print('total_time %d, Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f' % (endtime - starttime, epoch, num_epochs, iteration, total_step, total_loss/100, np.exp(loss.data[0])))
                 starttime = time()
                 total_loss = 0

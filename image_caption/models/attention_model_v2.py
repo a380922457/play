@@ -7,8 +7,8 @@ import numpy as np
 from time import time
 
 class Attention_Model(nn.Module):
-    def __init__(self, vocab_size=7800, input_encoding_size=512, rnn_size=800, seq_length=25,
-                 num_layers=2, drop_prob_lm=0.5, att_feat_size=2048, att_hid_size=512):
+    def __init__(self, vocab_size=7800, input_encoding_size=512, rnn_size=1024, seq_length=25,
+                 num_layers=1, drop_prob_lm=0.5, att_feat_size=2048, att_hid_size=512):
         super(Attention_Model, self).__init__()
         self.vocab_size = vocab_size
         self.input_encoding_size = input_encoding_size

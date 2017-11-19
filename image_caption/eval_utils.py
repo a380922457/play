@@ -11,7 +11,7 @@ import json
 import sys
 reload(sys)
 sys.setdefaultencoding("utf-8")
-
+from time import time
 
 class Evaluator(object):
     def __init__(self):
@@ -39,9 +39,7 @@ class Evaluator(object):
             lines.append(line)
         with open(json_predictions_file, "w") as f:
             json.dump(lines, f)
-
         m1_score = self.compute_m1(json_predictions_file)
-
         return m1_score
 
     def evaluate(self, model, criterion):
@@ -57,7 +55,7 @@ class Evaluator(object):
             # forward the model to also get generated samples for each image
             seq, _ = model.sample(images)
             decoded_seq = utils.decode_sequence(seq)
+            start = time()
             lang_stats = self.language_eval(decoded_seq, img_id)
-
         model.train()
         return lang_stats  # ,loss.data[0],

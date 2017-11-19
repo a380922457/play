@@ -1,10 +1,6 @@
-__author__ = 'tylin'
 from tokenizer.ptbtokenizer import PTBTokenizer
-from bleu.bleu import Bleu
-from meteor.meteor import Meteor
-from rouge.rouge import Rouge
 from cider.cider import Cider
-
+from time import time
 
 class COCOEvalCap:
     def __init__(self, coco, cocoRes):
@@ -23,35 +19,14 @@ class COCOEvalCap:
             gts[imgId] = self.coco.imgToAnns[imgId]
             res[imgId] = self.cocoRes.imgToAnns[imgId]
 
-        # print('tokenization...')
-        tokenizer = PTBTokenizer()
-        gts = tokenizer.tokenize(gts)
-        res = tokenizer.tokenize(res)
+        scorer = Cider()
+        method = "CIDEr"
+        score, scores = scorer.compute_score(gts, res)
 
-        # print('setting up scorers...')
-        scorers = [
-            # (Bleu(4), ["Bleu_1", "Bleu_2", "Bleu_3", "Bleu_4"]),
-            # (Meteor(), "METEOR"),
-            # (Rouge(), "ROUGE_L"),
-            (Cider(), "CIDEr")
-        ]
-
-        for scorer, method in scorers:
-            # print('computing %s score...' % (scorer.method()))
-            score, scores = scorer.compute_score(gts, res)
-            if type(method) == list:
-                for sc, scs, m in zip(score, scores, method):
-                    self.setEval(sc, m)
-                    self.setImgToEvalImgs(scs, gts.keys(), m)
-                    # print("%s: %0.3f" % (m, sc))
-            else:
-                self.setEval(score, method)
-                self.setImgToEvalImgs(scores, gts.keys(), method)
-                print("%s: %0.3f" % (method, score))
-        self.setEvalImgs()
-
-    def setEval(self, score, method):
         self.eval[method] = score
+        self.setImgToEvalImgs(scores, gts.keys(), method)
+        print("%s: %0.3f" % (method, score))
+        self.evalImgs = [eval for imgId, eval in self.imgToEval.items()]
 
     def setImgToEvalImgs(self, scores, imgIds, method):
         for imgId, score in zip(imgIds, scores):
@@ -60,5 +35,3 @@ class COCOEvalCap:
                 self.imgToEval[imgId]["image_id"] = imgId
             self.imgToEval[imgId][method] = score
 
-    def setEvalImgs(self):
-        self.evalImgs = [eval for imgId, eval in self.imgToEval.items()]

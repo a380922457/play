@@ -1,14 +1,4 @@
-# Filename: cider.py
-#
-# Description: Describes the class to compute the CIDEr (Consensus-Based Image Description Evaluation) Metric 
-#               by Vedantam, Zitnick, and Parikh (http://arxiv.org/abs/1411.5726)
-#
-# Creation Date: Sun Feb  8 14:16:54 2015
-#
-# Authors: Ramakrishna Vedantam <vrama91@vt.edu> and Tsung-Yi Lin <tl483@cornell.edu>
-
 from cider_scorer import CiderScorer
-import pdb
 
 class Cider:
     """
@@ -28,23 +18,16 @@ class Cider:
                 ref_for_image (dict)  : dictionary with key <image> and value <tokenized reference sentence>
         :return: cider (float) : computed CIDEr score for the corpus 
         """
-
         assert(gts.keys() == res.keys())
         imgIds = gts.keys()
 
         cider_scorer = CiderScorer(n=self._n, sigma=self._sigma)
 
         for id in imgIds:
-            hypo = res[id]
-            ref = gts[id]
-
-            # Sanity check.
-            assert(type(hypo) is list)
-            assert(len(hypo) == 1)
-            assert(type(ref) is list)
-            assert(len(ref) > 0)
-
-            cider_scorer += (hypo[0], ref)
+            hypo = res[id][0]["caption"]
+            refs = gts[id]
+            refs = [ref["caption"] for ref in refs]
+            cider_scorer += (hypo, refs)
 
         (score, scores) = cider_scorer.compute_score()
 
